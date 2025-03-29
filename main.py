@@ -50,19 +50,46 @@ def train_model(model, train_loader, epochs=100, lr=0.001):
             optimizer.step()
             total_loss += loss.item()
 
-        if epoch % 10 == 0:
             print(f"Epoch {epoch}, Loss: {total_loss / len(train_loader)}")
 
-# Generate synthetic training data
-num_samples = 1000
+# Function to test the model on new data
+def test_model(model, test_loader):
+    model.eval()
+    predictions = []
+    actuals = []
+
+    with torch.no_grad():
+        for capacitance, area in test_loader:
+            pred = model(capacitance)
+            predictions.extend(pred.numpy().flatten())
+            actuals.extend(area.numpy().flatten())
+
+    # Print example predictions
+    print("\nSample Predictions:")
+    for i in range(min(5, len(predictions))):  # Show first 5 results
+        print(f"Actual Area: {actuals[i]:.2f}, Predicted Area: {predictions[i]:.2f}")
+
+# Generate synthetic training data, needs supplementation with real sim data, not rand
+num_samples_train = 1000
 num_sensors = 16  # Example: 16 capacitance sensors
-capacitance_data = np.random.rand(num_samples, num_sensors)  # Random capacitance values
-true_areas = np.sum(capacitance_data, axis=1, keepdims=True) / num_sensors * 100  # Example relationship
+capacitance_train = np.random.rand(num_samples_train, num_sensors)  # Random capacitance values
+true_areas_train = np.sum(capacitance_train, axis=1, keepdims=True) / num_sensors * 100  # Example relationship
 
 # Prepare dataset and model
-dataset = ECVTDataset(capacitance_data, true_areas)
-train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+train_dataset = ECVTDataset(capacitance_train, true_areas_train)
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 model = ECVTNet(input_size=num_sensors)
 
 # Train the model
 train_model(model, train_loader)
+
+# Generate new test data
+num_samples_test = 200
+capacitance_test = np.random.rand(num_samples_test, num_sensors)  # New capacitance values
+true_areas_test = np.sum(capacitance_test, axis=1, keepdims=True) / num_sensors * 100  # Same formula
+
+test_dataset = ECVTDataset(capacitance_test, true_areas_test)
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+# Test the model
+test_model(model, test_loader)
