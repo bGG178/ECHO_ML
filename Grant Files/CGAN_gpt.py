@@ -10,13 +10,16 @@ import random
 from glob import glob
 from PIL import Image
 from pathlib import Path
+from skimage.metrics import structural_similarity as ssim  # Add this import
 
 # --- Hyperparameters ---
-BATCH_SIZE = 16  # Number of samples per batch
-IMAGE_SIZE = 16  # Width/Height of square images
+BATCH_SIZE = 64  # Number of samples per batch
+IMAGE_SIZE_X = 15  # Width of images
+IMAGE_SIZE_Y = 16  # Height of images
 LATENT_DIM = 100  # Dimensionality of noise vector for Generator
-EPOCHS = 100  # Number of training epochs
-LEARNING_RATE = 2e-4  # Learning rate for optimizers
+EPOCHS = 30  # Number of training epochs
+LEARNING_RATE_D = 0.00019  # Learning rate for discriminator
+LEARNING_RATE_G = 0.00004  # Learning rate for generator
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Training on GPU if available
 
 def save_generated_images(generator, epoch, measurement_sample):
@@ -34,6 +37,42 @@ def save_generated_images(generator, epoch, measurement_sample):
     plt.savefig(f"outputs/epoch_{epoch+1:03d}.png")
     plt.close()
 
+def calculate_mse(img1, img2):
+    # Ensure img1 and img2 have the same shape
+    assert img1.shape == img2.shape, f"Shape mismatch: {img1.shape} vs {img2.shape}"
+    return np.mean((img1 - img2) ** 2)
+
+def calculate_ssim(img1, img2):
+    # Ensure img1 and img2 have the same shape
+    assert img1.shape == img2.shape, f"Shape mismatch: {img1.shape} vs {img2.shape}"
+    return ssim(img1, img2, data_range=img2.max() - img2.min())
+
+def reconstruct_image(generator, measurement_sample, ground_truth_image=None, output_path="reconstructed_image.png"):
+    generator.eval()
+    with torch.no_grad():
+        z = torch.randn(measurement_sample.size(0), LATENT_DIM, device=DEVICE)
+        measurement_sample = measurement_sample.view(-1, 1)  # Ensure measurement_sample has the correct dimensions
+        gen_imgs = generator(z, measurement_sample.to(DEVICE))
+        gen_imgs = gen_imgs.cpu().numpy()
+
+    if measurement_sample.size(0) == 1:
+        fig, ax = plt.subplots(figsize=(3, 3))
+        ax.imshow(gen_imgs[0][0], cmap='gray')
+        ax.axis('off')
+    else:
+        fig, axs = plt.subplots(1, measurement_sample.size(0), figsize=(15, 3))
+        for i in range(measurement_sample.size(0)):
+            axs[i].imshow(gen_imgs[i][0], cmap='gray')
+            axs[i].axis('off')
+    plt.savefig(output_path)
+    plt.close()
+
+    if ground_truth_image is not None:
+        ground_truth_image = ground_truth_image.cpu().numpy()
+        mse = calculate_mse(gen_imgs[0][0], ground_truth_image[0][0])
+        ssim_value = calculate_ssim(gen_imgs[0][0], ground_truth_image[0][0])
+        print(f"MSE: {mse:.4f}, SSIM: {ssim_value:.4f}")
+
 # ---------------------------
 # Dataset for ECT from folders
 # ---------------------------
@@ -47,9 +86,16 @@ class FolderECTDataset(Dataset):
                 for img_file in image_files:
                     self.sample_paths.append((img_file, area))
 
+        # Remove one image at random for ground truth testing
+        self.ground_truth_image_path, _ = self.sample_paths.pop(random.randint(0, len(self.sample_paths) - 1))
+
+        # Save the ground truth image as "base_image.png"
+        ground_truth_image = Image.open(self.ground_truth_image_path).convert("L")
+        ground_truth_image.save("base_image.png")
+
         self.transform = transforms.Compose([
             transforms.Grayscale(),
-            transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+            transforms.Resize((IMAGE_SIZE_Y, IMAGE_SIZE_X)),
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5])
         ])
@@ -65,9 +111,6 @@ class FolderECTDataset(Dataset):
         area = torch.tensor(area, dtype=torch.float32)
         return capacitance_data, area
 
-
-
-
 # ---------------------------
 # Generator Model Definition
 # ---------------------------
@@ -75,20 +118,20 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(256 + LATENT_DIM, 128),
+            nn.Linear(LATENT_DIM + 1, 128),  # Adjusted input size
             nn.ReLU(True),
             nn.Linear(128, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(True),
-            nn.Linear(256, IMAGE_SIZE * IMAGE_SIZE),
+            nn.Linear(256, IMAGE_SIZE_Y * IMAGE_SIZE_X),
             nn.Tanh()
         )
 
     def forward(self, z, measurement):
-        flattened = measurement.view(measurement.size(0),-1)
-        x = torch.cat([z, flattened], dim=1)
+        measurement = measurement.view(-1, 1)  # Ensure measurement has the correct dimensions
+        x = torch.cat([z, measurement], dim=1)  # Concatenate z and measurement
         img = self.model(x)
-        img = img.view(-1, 1, IMAGE_SIZE, IMAGE_SIZE)
+        img = img.view(-1, 1, IMAGE_SIZE_Y, IMAGE_SIZE_X)  # Ensure correct dimensions
         return img
 
 # -------------------------------
@@ -98,9 +141,9 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(256 + 256, 512),  # Concatenated size of image and measurement
+            nn.Linear((IMAGE_SIZE_Y * IMAGE_SIZE_X) + 1, 256),  # Adjusted input size
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, 128),
+            nn.Linear(256, 128),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(128, 1),
             nn.Sigmoid()
@@ -109,23 +152,20 @@ class Discriminator(nn.Module):
     def forward(self, img, measurement):
         # Ensure img is a 4D tensor
         if img.ndimension() == 4:
-            img = img.view(img.size(0), -1)  # Flatten to (batch_size, 256)
+            img = img.view(img.size(0), -1)  # Flatten to (batch_size, IMAGE_SIZE_Y * IMAGE_SIZE_X)
         elif img.ndimension() == 2:
-            img = img.view(img.size(0), -1)  # Ensure it's (batch_size, 256)
+            img = img.view(img.size(0), -1)  # Ensure it's (batch_size, IMAGE_SIZE_Y * IMAGE_SIZE_X)
         else:
             print(f"Unexpected img dimension: {img.ndimension()}")
 
         img_flat = img
-        measurement_flat = measurement.view(measurement.size(0), -1)  # Flatten measurement to (batch_size, 256)
+        measurement_flat = measurement.view(measurement.size(0), -1)  # Flatten measurement to (batch_size, 1)
 
         # Concatenate the flattened image and measurement tensor
         x = torch.cat([img_flat, measurement_flat], dim=1)
 
         validity = self.model(x)
         return validity
-
-
-
 
 # -----------------------------
 # Training Function for CGAN
@@ -137,8 +177,8 @@ def train():
     generator = Generator().to(DEVICE)
     discriminator = Discriminator().to(DEVICE)
 
-    optimizer_G = optim.Adam(generator.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))
-    optimizer_D = optim.Adam(discriminator.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))
+    optimizer_G = optim.Adam(generator.parameters(), lr=LEARNING_RATE_G, betas=(0.5, 0.999))
+    optimizer_D = optim.Adam(discriminator.parameters(), lr=LEARNING_RATE_D, betas=(0.5, 0.999))
     loss_fn = nn.BCELoss()
 
     for epoch in range(EPOCHS):
@@ -173,3 +213,20 @@ def train():
 
 if __name__ == "__main__":
     train()
+    # Load the trained generator
+    generator = Generator().to(DEVICE)
+    generator.load_state_dict(torch.load("generator_cgan_ect.pth"))
+    generator.eval()
+
+    # Example measurement sample for reconstruction
+    example_measurement = torch.tensor([0.5], dtype=torch.float32).unsqueeze(0).to(DEVICE)
+
+    # Load ground truth image for comparison (example)
+    dataset = FolderECTDataset()
+    ground_truth_image_path = dataset.ground_truth_image_path
+    if os.path.exists(ground_truth_image_path):
+        ground_truth_image = Image.open(ground_truth_image_path).convert("L")
+        ground_truth_image = transforms.ToTensor()(ground_truth_image).unsqueeze(0).to(DEVICE)
+        reconstruct_image(generator, example_measurement, ground_truth_image)
+    else:
+        print(f"Ground truth image not found at {ground_truth_image_path}")
