@@ -4,13 +4,28 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="">
+    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+Python ML tutorial files">
+      <change afterPath="$PROJECT_DIR$/CGAN_Github_Lonatang/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CGAN_Github_Lonatang/LICENSE" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CGAN_Github_Lonatang/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CGAN_Github_Lonatang/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CGAN_Github_Lonatang/pyproject.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CGAN_Github_Lonatang/tools/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Grant Files/CGAN_gpt.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Resources/CGAN" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -43,13 +58,23 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Python.CGAN_gpt.executor": "Run",
     "Python.main.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "master",
-    "settings.editor.selected.configurable": "editor.preferences.fonts.default"
+    "last_opened_file_path": "C:/Users/welov/Documents/GitHub/conditional_gan",
+    "settings.editor.selected.configurable": "preferences.pluginManager"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\DATA" />
+      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\CGAN Github Lonatang" />
+      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\ML Course python files" />
+      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Test code" />
+    </key>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -66,6 +91,39 @@
       <option name="presentableId" value="Default" />
       <updated>1743110261953</updated>
     </task>
+    <task id="LOCAL-00001" summary="Creating folders and main test code">
+      <option name="closed" value="true" />
+      <created>1743882668344</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1743882668344</updated>
+    </task>
+    <task id="LOCAL-00002" summary="+Python ML tutorial files">
+      <option name="closed" value="true" />
+      <created>1743882765593</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1743882765593</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Creating folders and main test code" />
+    <MESSAGE value="+Python ML tutorial files" />
+    <option name="LAST_COMMIT_MESSAGE" value="+Python ML tutorial files" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/.venv/Lib/site-packages/torch/utils/data/dataset.py</url>
+          <line>1</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>
