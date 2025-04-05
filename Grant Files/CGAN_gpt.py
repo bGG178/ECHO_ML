@@ -19,6 +19,7 @@ EPOCHS = 100  # Number of training epochs
 LEARNING_RATE = 2e-4  # Learning rate for optimizers
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Training on GPU if available
 
+
 def save_generated_images(generator, epoch, measurement_sample):
     generator.eval()
     with torch.no_grad():
@@ -31,8 +32,9 @@ def save_generated_images(generator, epoch, measurement_sample):
     for i in range(5):
         axs[i].imshow(gen_imgs[i][0], cmap='gray')
         axs[i].axis('off')
-    plt.savefig(f"outputs/epoch_{epoch+1:03d}.png")
+    plt.savefig(f"outputs/epoch_{epoch + 1:03d}.png")
     plt.close()
+
 
 # ---------------------------
 # Dataset for ECT from folders
@@ -66,8 +68,6 @@ class FolderECTDataset(Dataset):
         return capacitance_data, area
 
 
-
-
 # ---------------------------
 # Generator Model Definition
 # ---------------------------
@@ -85,11 +85,12 @@ class Generator(nn.Module):
         )
 
     def forward(self, z, measurement):
-        flattened = measurement.view(measurement.size(0),-1)
+        flattened = measurement.view(measurement.size(0), -1)
         x = torch.cat([z, flattened], dim=1)
         img = self.model(x)
         img = img.view(-1, 1, IMAGE_SIZE, IMAGE_SIZE)
         return img
+
 
 # -------------------------------
 # Discriminator Model Definition
@@ -123,8 +124,6 @@ class Discriminator(nn.Module):
 
         validity = self.model(x)
         return validity
-
-
 
 
 # -----------------------------
@@ -170,6 +169,7 @@ def train():
 
     torch.save(generator.state_dict(), "generator_cgan_ect.pth")
     torch.save(discriminator.state_dict(), "discriminator_cgan_ect.pth")
+
 
 if __name__ == "__main__":
     train()
