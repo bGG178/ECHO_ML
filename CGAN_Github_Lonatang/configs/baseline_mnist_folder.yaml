@@ -1,0 +1,80 @@
+# Project
+EXP_NAME: "baseline-mnist_folder-28x28"
+
+# Envs
+DEVICE: "0"
+
+# Data
+DATASET:
+  TRAIN:
+    NAME: "image_folder"
+    ROOT: "./datasets/mnist_folder"
+    IMAGE_SIZE: 28
+    NORMALIZE:
+      MEAN: [ 0.5 ]
+      STD: [ 0.5 ]
+
+# Model
+MODEL:
+  G:
+    TYPE: "vanilla_net"
+    IMAGE_SIZE: 28
+    CHANNELS: 1
+    NUM_CLASSES: 10
+    LATENT_DIM: 100
+  D:
+    TYPE: "discriminator_for_vanilla"
+    IMAGE_SIZE: 28
+    CHANNELS: 1
+    NUM_CLASSES: 10
+
+TRAIN:
+  RESUME_G: ""
+  RESUME_D: ""
+
+  # train weights
+  G_WEIGHTS_PATH: ""
+  D_WEIGHTS_PATH: ""
+
+  # loss config
+  LOSS:
+    ADV:
+      TYPE: "l2_loss"
+      WEIGHT: 1.0
+
+  # train solver
+  SOLVER:
+    G:
+      OPTIM:
+        TYPE: "adam"
+        LR: 0.0002
+        BETAS: [ 0.5, 0.999 ]
+
+      LR_SCHEDULER:
+        TYPE: "constant"
+        FACTOR: 1.0
+        TOTAL_ITERS: 128
+    D:
+      OPTIM:
+        TYPE: "adam"
+        LR: 0.0002
+        BETAS: [ 0.5, 0.999 ]
+
+      LR_SCHEDULER:
+        TYPE: "constant"
+        FACTOR: 1.0
+        TOTAL_ITERS: 128
+
+  # train hyper-parameters
+  EPOCHS: 128
+  BATCH_SIZE: 128
+
+  # train setup
+  LOCAL_RANK: -1
+  RANK: -1
+  WORLD_SIZE: 1
+  DIST_URL: "env://"
+
+  # train results
+  OUTPUT_DIR: "results/train"
+  VERBOSE: False

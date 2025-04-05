@@ -1,0 +1,3 @@
+Author: Bruce Noble - PARSEC ECHO
+
+The data in this file is generated via the "TriangleDataSimulations.m" file to help with training a very basic algorithm. The folder names represent the area of the triangle in the simulation. The file names are not a decimal of the area, the digits before the decimal are the area and the digits after the decimal is used to track how many times that area was produced by a simulation. In order to increase the volume of data per time there is no decimal accuracy for the simulations, rounded to the nearest whole number.

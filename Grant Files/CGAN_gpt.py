@@ -62,9 +62,6 @@ class FolderECTDataset(Dataset):
         capacitance_data = Image.open(img_path).convert("RGB")
         capacitance_data = self.transform(capacitance_data)
 
-        # Check the shape of capacitance_data
-        print(f"capacitance_data shape: {capacitance_data.shape}")
-
         area = torch.tensor(area, dtype=torch.float32)
         return capacitance_data, area
 
@@ -121,13 +118,8 @@ class Discriminator(nn.Module):
         img_flat = img
         measurement_flat = measurement.view(measurement.size(0), -1)  # Flatten measurement to (batch_size, 256)
 
-        print(f"img_flat shape: {img_flat.shape}")  # Check shape of img_flat
-        print(f"measurement_flat shape: {measurement_flat.shape}")  # Check shape of measurement_flat
-
         # Concatenate the flattened image and measurement tensor
         x = torch.cat([img_flat, measurement_flat], dim=1)
-
-        print(f"Concatenated tensor shape: {x.shape}")  # Check shape after concatenation
 
         validity = self.model(x)
         return validity
@@ -150,16 +142,10 @@ def train():
     loss_fn = nn.BCELoss()
 
     for epoch in range(EPOCHS):
-        for i, (measurement, real_imgs) in enumerate(dataloader):
+        for i, (real_imgs, measurement) in enumerate(dataloader):  # Corrected order
             batch_size = measurement.size(0)
             real_imgs = real_imgs.to(DEVICE)
-            print(f'INITIAL DIM: {real_imgs.ndimension()}')
             measurement = measurement.to(DEVICE)
-
-            # Check the shape of real_imgs
-            print(f"real_imgs shape: {real_imgs.shape}")
-            if real_imgs.ndimension() != 4:
-                print(f"Unexpected real_imgs dimension: {real_imgs.ndimension()}")
 
             valid = torch.ones((batch_size, 1), device=DEVICE)
             fake = torch.zeros((batch_size, 1), device=DEVICE)
@@ -186,10 +172,4 @@ def train():
     torch.save(discriminator.state_dict(), "discriminator_cgan_ect.pth")
 
 if __name__ == "__main__":
-
-    print(os.path.exists(Path("C:/Users/welov/PycharmProjects/ECHO_ML/DATA/MLTriangleTrainingData")))
     train()
-
-
-
-
