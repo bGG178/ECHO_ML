@@ -1,3 +1,13 @@
+"""
+To Do:
+Double check ground truth image and reconstruction are set up properly
+Increase reconstruction accuracy
+Add more comments
+Refine losses
+Have the algorithm guess the area based on capacitance data
+
+"""
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -10,15 +20,15 @@ import random
 from glob import glob
 from PIL import Image
 from pathlib import Path
-from skimage.metrics import structural_similarity as ssim  # Add this import
+from skimage.metrics import structural_similarity  as ssim  # Add this import
 
 # --- Hyperparameters ---
 BATCH_SIZE = 64  # Number of samples per batch
 IMAGE_SIZE_X = 15  # Width of images
 IMAGE_SIZE_Y = 16  # Height of images
 LATENT_DIM = 100  # Dimensionality of noise vector for Generator
-EPOCHS = 30  # Number of training epochs
-LEARNING_RATE_D = 0.00019  # Learning rate for discriminator
+EPOCHS = 10  # Number of training epochs
+LEARNING_RATE_D = 0.00001  # Learning rate for discriminator
 LEARNING_RATE_G = 0.00004  # Learning rate for generator
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Training on GPU if available
 
@@ -87,11 +97,13 @@ class FolderECTDataset(Dataset):
                     self.sample_paths.append((img_file, area))
 
         # Remove one image at random for ground truth testing
-        self.ground_truth_image_path, _ = self.sample_paths.pop(random.randint(0, len(self.sample_paths) - 1))
-
+        self.ground_truth_image_path = Path(r"C:/Users/welov/PycharmProjects/ECHO_ML/DATA/MLTriangleTrainingData/4/4.960.jpg")
         # Save the ground truth image as "base_image.png"
         ground_truth_image = Image.open(self.ground_truth_image_path).convert("L")
         ground_truth_image.save("base_image.png")
+
+        print(f"Ground truth image path: {self.ground_truth_image_path}")
+
 
         self.transform = transforms.Compose([
             transforms.Grayscale(),
@@ -118,20 +130,23 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(LATENT_DIM + 1, 128),  # Adjusted input size
+            nn.Linear(LATENT_DIM + 1, 256),  # Increased number of neurons
             nn.ReLU(True),
-            nn.Linear(128, 256),
-            nn.BatchNorm1d(256),
+            nn.Linear(256, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(True),
-            nn.Linear(256, IMAGE_SIZE_Y * IMAGE_SIZE_X),
+            nn.Linear(512, 1024),
+            nn.BatchNorm1d(1024),
+            nn.ReLU(True),
+            nn.Linear(1024, IMAGE_SIZE_Y * IMAGE_SIZE_X),
             nn.Tanh()
         )
 
     def forward(self, z, measurement):
-        measurement = measurement.view(-1, 1)  # Ensure measurement has the correct dimensions
-        x = torch.cat([z, measurement], dim=1)  # Concatenate z and measurement
+        measurement = measurement.view(-1, 1)
+        x = torch.cat([z, measurement], dim=1)
         img = self.model(x)
-        img = img.view(-1, 1, IMAGE_SIZE_Y, IMAGE_SIZE_X)  # Ensure correct dimensions
+        img = img.view(-1, 1, IMAGE_SIZE_Y, IMAGE_SIZE_X)
         return img
 
 # -------------------------------
@@ -141,7 +156,9 @@ class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear((IMAGE_SIZE_Y * IMAGE_SIZE_X) + 1, 256),  # Adjusted input size
+            nn.Linear((IMAGE_SIZE_Y * IMAGE_SIZE_X) + 1, 512),  # Increased number of neurons
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512, 256),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(256, 128),
             nn.LeakyReLU(0.2, inplace=True),
@@ -150,20 +167,13 @@ class Discriminator(nn.Module):
         )
 
     def forward(self, img, measurement):
-        # Ensure img is a 4D tensor
         if img.ndimension() == 4:
-            img = img.view(img.size(0), -1)  # Flatten to (batch_size, IMAGE_SIZE_Y * IMAGE_SIZE_X)
+            img = img.view(img.size(0), -1)
         elif img.ndimension() == 2:
-            img = img.view(img.size(0), -1)  # Ensure it's (batch_size, IMAGE_SIZE_Y * IMAGE_SIZE_X)
-        else:
-            print(f"Unexpected img dimension: {img.ndimension()}")
-
+            img = img.view(img.size(0), -1)
         img_flat = img
-        measurement_flat = measurement.view(measurement.size(0), -1)  # Flatten measurement to (batch_size, 1)
-
-        # Concatenate the flattened image and measurement tensor
+        measurement_flat = measurement.view(measurement.size(0), -1)
         x = torch.cat([img_flat, measurement_flat], dim=1)
-
         validity = self.model(x)
         return validity
 
