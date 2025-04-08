@@ -1,6 +1,28 @@
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
+
+
+def phantomplot(phantom):
+    r = 1  # Define the radius of the plotting area
+    fig, ax = plt.subplots(figsize=(6, 6))  # Create a figure and axis
+    ax.set_xlim(-r, r)  # Set x-axis limits
+    ax.set_ylim(-r, r)  # Set y-axis limits
+    ax.set_aspect('equal')  # Ensure equal scaling for x and y axes
+    ax.set_title('Phantom Plot')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+
+    # Plot each object in the phantom
+    for obj in phantom:
+        center = obj['center']
+        radius = obj['radius']
+        circle = Circle(center, radius, edgecolor='blue', facecolor='none', linewidth=2)
+        ax.add_patch(circle)  # Add the circle to the plot
+
+    plt.show()  # Display the plot
+
 
 def get_measurement_count(electrodecount):
     """
@@ -47,18 +69,27 @@ def matrix_to_image(C, output_path=None, normalize=True):
     return img
 
 if __name__ == "__main__":
+    datafile = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\combined_data.npy"
+    loaded_data = np.load(datafile, allow_pickle=True)
+    print("Loaded data example:", loaded_data[4]['measurements'])
+
     #--HYPERPARAMS--
     ELECTRODE_NUM = 15
     # Example raw measurement vector using random numbers
 
-    raw_vec = np.random.rand(get_measurement_count(ELECTRODE_NUM))
+    for i in range(len(loaded_data)):
+        raw_vec = loaded_data[i]['measurements']
+        phantom_data = loaded_data[i]['objects']
 
-    # 1) Build the circulant matrix
-    circ_mat = build_circulant_matrix(raw_vec)
+        phantomplot(phantom_data)
 
-    # 2) Convert to image (and save to disk)
-    img = matrix_to_image(circ_mat, output_path=f"circulant{get_measurement_count(ELECTRODE_NUM)}.png")
+        # 1) Build the circulant matrix
+        circ_mat = build_circulant_matrix(raw_vec)
 
-    # 3)  Plot display the image
-    plt.imshow(img)
-    plt.show()
+        # 2) Convert to image (and save to disk)
+        img = matrix_to_image(circ_mat, output_path=f"circulant{get_measurement_count(ELECTRODE_NUM)}.png")
+
+        # 3)  Plot display the image
+        plt.title(f"Circulant Matrix {i}")
+        plt.imshow(img)
+        plt.show()
