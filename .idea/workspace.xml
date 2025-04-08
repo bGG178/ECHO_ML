@@ -4,11 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+Modulator.py">
-      <change afterPath="$PROJECT_DIR$/Grant Files/Phantom Generators/phantom_generator.py" afterDir="false" />
+    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+phantom_generator.py&#10;+New Datasets">
+      <change afterPath="$PROJECT_DIR$/Grant Files/Construction/LBP.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Grant Files/Construction/sens_matrix.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET/circulant105.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET/circulant105.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET/modulator.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET/modulator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DATA/GrantGeneratedData/combined_data.npy" beforeDir="false" afterPath="$PROJECT_DIR$/DATA/GrantGeneratedData/combined_data.npy" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET/modulator.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/Construction/modulator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Grant Files/Phantom Generators/phantom_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,9 +58,11 @@
   "keyToString": {
     "Python.CGAN_gpt.executor": "Run",
     "Python.CGAN_paper.executor": "Run",
+    "Python.LBP.executor": "Run",
     "Python.main.executor": "Run",
     "Python.modulator.executor": "Run",
     "Python.phantom_generator.executor": "Run",
+    "Python.sens_matrix.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "master",
@@ -68,11 +72,11 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\ECHO_CGAN_UNET" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\DATA" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\CGAN Github Lonatang" />
-      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\ML Course python files" />
     </key>
   </component>
   <component name="RunManager">
@@ -89,7 +93,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET/modulator.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction\modulator.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -111,7 +115,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Grant Files/Phantom Generators/phantom_generator.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction\phantom_generator.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -122,8 +126,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.phantom_generator" />
         <item itemvalue="Python.modulator" />
+        <item itemvalue="Python.phantom_generator" />
       </list>
     </recent_temporary>
   </component>
@@ -191,7 +195,15 @@
       <option name="project" value="LOCAL" />
       <updated>1744124521930</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="+phantom_generator.py&#10;+New Datasets">
+      <option name="closed" value="true" />
+      <created>1744128228063</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1744128228063</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -243,7 +255,8 @@
     <MESSAGE value="+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder" />
     <MESSAGE value="*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper" />
     <MESSAGE value="+Modulator.py" />
-    <option name="LAST_COMMIT_MESSAGE" value="+Modulator.py" />
+    <MESSAGE value="+phantom_generator.py&#10;+New Datasets" />
+    <option name="LAST_COMMIT_MESSAGE" value="+phantom_generator.py&#10;+New Datasets" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
