@@ -4,47 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+TriangleMLUpload within DATA folder">
-      <change afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/ECHO_ML.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/ECHO_ML.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_gpt.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_gpt.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/base_image.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/base_image.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/discriminator_cgan_ect.pth" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/discriminator_cgan_ect.pth" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/generator_cgan_ect.pth" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/generator_cgan_ect.pth" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_001.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_001.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_002.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_002.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_003.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_003.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_004.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_004.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_005.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_005.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_006.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_006.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_007.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_007.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_008.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_008.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_009.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_009.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_010.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_010.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_011.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_011.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_012.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_012.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_013.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_013.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_014.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_014.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_015.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_015.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_016.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_016.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_017.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_017.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_018.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_018.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_019.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_019.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_020.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_020.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_021.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_021.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_022.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_022.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_023.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_023.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_024.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_024.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_025.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_025.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_026.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_026.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_027.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_027.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_028.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_028.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_029.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_029.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_030.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/outputs/epoch_030.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/reconstructed_image.png" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/reconstructed_image.png" afterDir="false" />
-    </list>
+    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -147,7 +107,15 @@
       <option name="project" value="LOCAL" />
       <updated>1743889781117</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper">
+      <option name="closed" value="true" />
+      <created>1744065680488</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1744065680488</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -197,7 +165,8 @@
     <MESSAGE value="Creating folders and main test code" />
     <MESSAGE value="+Python ML tutorial files" />
     <MESSAGE value="+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder" />
-    <option name="LAST_COMMIT_MESSAGE" value="+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder" />
+    <MESSAGE value="*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper" />
+    <option name="LAST_COMMIT_MESSAGE" value="*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
