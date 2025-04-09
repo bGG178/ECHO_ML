@@ -2,11 +2,44 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.types import Device
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import matplotlib.pyplot as plt
 from Construction.modulator import build_circulant_matrix, matrix_to_image
 from Construction.phantom_generator import PhantomGenerator
+
+
+"""
+Make sure capacitances and phantoms go into training, but testing only on capacitances
+"""
+
+"""
+Dropout method
+
+self.conv_layers = nn.Sequential(
+    nn.Conv2d(in_channels + 1, 64, kernel_size=4, stride=2, padding=1),
+    nn.LeakyReLU(0.2, inplace=True),
+    nn.Dropout(0.3),  # Add dropout with a probability of 0.3
+    nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
+    nn.BatchNorm2d(128),
+    nn.LeakyReLU(0.2, inplace=True),
+    nn.Dropout(0.3),  # Add dropout
+    nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
+    nn.BatchNorm2d(256),
+    nn.LeakyReLU(0.2, inplace=True),
+    nn.Dropout(0.3),  # Add dropout
+    nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),
+    nn.BatchNorm2d(512),
+    nn.LeakyReLU(0.2, inplace=True),
+)
+"""
+"""
+The train_cgan_ect function trains the Conditional GAN (CGAN) with:
+The raw capacitance data (cond_input) as the condition input to the generator and discriminator.
+The phantom data (real_imgs) as the target output for the generator and the real input for the discriminator.
+The generator learns to map the capacitance data to the phantom data, while the discriminator ensures the generator produces realistic outputs.
+"""
 
 
 """
@@ -151,20 +184,23 @@ class Discriminator(nn.Module):
     def __init__(self, condition_shape=(1, 66, 66), in_channels=1):
         super(Discriminator, self).__init__()
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(in_channels + 1, 64, kernel_size=4, stride=2, padding=1),  # Output: (64, 33, 33)
+            nn.Conv2d(in_channels + 1, 64, kernel_size=4, stride=2, padding=1),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),  # Output: (128, 16, 16)
+            nn.Dropout(0.3),  # Add dropout with a probability of 0.3
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),  # Output: (256, 8, 8)
+            nn.Dropout(0.3),  # Add dropout
+            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),  # Output: (512, 4, 4)
+            nn.Dropout(0.3),  # Add dropout
+            nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(512),
             nn.LeakyReLU(0.2, inplace=True),
         )
 
-        dummy_input = torch.zeros(1, in_channels + 1, *condition_shape[1:])
+        dummy_input = torch.zeros(1, in_channels + 1, *condition_shape[1:]).to(device)
         flattened_size = self._get_flattened_size(dummy_input)
         print(f"Flattened size: {flattened_size}"),  # Debugging line
 
@@ -193,9 +229,12 @@ class Discriminator(nn.Module):
 
 # Training loop for CGAN-ECT using U-Net generator
 def train_cgan_ect(generator, discriminator, dataloader, num_epochs=2, device='cuda'):
+    genlossarr = []
+    dislossarr = []
+
     # Optimizers for both networks
-    opt_G = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-    opt_D = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    opt_G = optim.Adam(generator.parameters(), lr=0.00012, betas=(0.5, 0.999))
+    opt_D = optim.Adam(discriminator.parameters(), lr=0.00012, betas=(0.5, 0.999))
 
     criterion = nn.BCELoss()  # Binary cross-entropy loss
 
@@ -213,7 +252,8 @@ def train_cgan_ect(generator, discriminator, dataloader, num_epochs=2, device='c
             cond_input = F.interpolate(cond_input, size=(64, 64), mode='bilinear', align_corners=False)
 
             # Adversarial ground truths
-            valid = torch.ones(batch_size, 1, device=device)
+            valid = torch.full((batch_size, 1), 0.9, device=device)
+            # Use 0.9 instead of 1.0
             fake = torch.zeros(batch_size, 1, device=device)
 
             # ---------------------
@@ -228,6 +268,10 @@ def train_cgan_ect(generator, discriminator, dataloader, num_epochs=2, device='c
             g_loss = criterion(discriminator(gen_imgs, cond_input), valid)
             g_loss.backward()
             opt_G.step()
+
+            # MORE RESEARCH Add noise to real and generated images
+            #real_imgs += torch.randn_like(real_imgs) * 0.05  # Add noise to real images
+            #gen_imgs += torch.randn_like(gen_imgs) * 0.05  # Add noise to generated images
 
             # ---------------------
             #  Train Discriminator
@@ -244,6 +288,12 @@ def train_cgan_ect(generator, discriminator, dataloader, num_epochs=2, device='c
             if i % 50 == 0:
                 print(
                     f"[Epoch {epoch}/{num_epochs}] [Batch {i}/{len(dataloader)}] [D loss: {d_loss.item():.4f}] [G loss: {g_loss.item():.4f}]")
+                dislossarr.append(d_loss.item())
+                genlossarr.append(g_loss.item())
+
+    plt.plot(dislossarr, label='Discriminator Loss')
+    plt.plot(genlossarr, label='Generator Loss')
+    plt.show()
 
 
 # Main code with dummy data
@@ -261,8 +311,8 @@ if __name__ == "__main__":
     datafile = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\combined_data.npy"
     combined_data = np.load(datafile, allow_pickle=True)
 
-    # Split the dataset into training (70%) and testing (30%)
-    train_size = int(0.7 * len(combined_data))
+    # Split the dataset into training (90%) and testing (10%)
+    train_size = int(0.9 * len(combined_data))
     train_data = combined_data[:train_size]
     test_data = combined_data[train_size:]
 
@@ -283,7 +333,9 @@ if __name__ == "__main__":
     ).unsqueeze(1)
 
     train_dataset = TensorDataset(train_real_images, train_capacitance)
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True
+    )
 
     # Prepare the testing dataset
     test_real_images = torch.tensor(
@@ -318,7 +370,7 @@ if __name__ == "__main__":
             cond_input = cond_input.to(device)
 
             # Generate reconstructed image
-            reconstructed_img = generator(cond_input).cpu().squeeze(0).squeeze(0)
+            reconstructed_img = generator(cond_input).to(device).cpu().squeeze(0).squeeze(0)
 
             reconstructed_img -= reconstructed_img.min()
             reconstructed_img /= reconstructed_img.max()
