@@ -2,7 +2,8 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
-from phantom_generator import PhantomGenerator
+#Remove '.' when running modulator.py directly
+from .phantom_generator import PhantomGenerator
 
 
 def phantomplot(ax1, phantom):
@@ -56,7 +57,11 @@ def matrix_to_image(C, output_path=None, normalize=True):
     arr = C.astype(np.float32)
     if normalize:
         # Scale min→0, max→255
-        arr = (arr - arr.min()) / (arr.max() - arr.min()) * 255.0
+        arr_min, arr_max = arr.min(), arr.max()
+        if arr_max > arr_min:  # Avoid division by zero
+            arr = (arr - arr_min) / (arr_max - arr_min) * 255.0
+        else:
+            arr = np.zeros_like(arr)  # Set to zero if all values are the same
     # Convert to uint8
     img_arr = arr.astype(np.uint8)
     img = Image.fromarray(img_arr, mode='L')  # 'L' = (8‑bit pixels, black and white)

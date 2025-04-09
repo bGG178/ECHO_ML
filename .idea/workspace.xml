@@ -4,13 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+phantom_generator.py&#10;+New Datasets">
-      <change afterPath="$PROJECT_DIR$/Grant Files/Construction/LBP.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Grant Files/Construction/sens_matrix.py" afterDir="false" />
+    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+Trying LBP&#10;*Changes to modulator.py for presentatbility">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/DATA/GrantGeneratedData/combined_data.npy" beforeDir="false" afterPath="$PROJECT_DIR$/DATA/GrantGeneratedData/combined_data.npy" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET/modulator.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/Construction/modulator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/Phantom Generators/phantom_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Grant Files/Construction/modulator.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/Construction/modulator.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -203,7 +200,15 @@
       <option name="project" value="LOCAL" />
       <updated>1744128228063</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="+Trying LBP&#10;*Changes to modulator.py for presentatbility">
+      <option name="closed" value="true" />
+      <created>1744144792853</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1744144792853</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -256,7 +261,8 @@
     <MESSAGE value="*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper" />
     <MESSAGE value="+Modulator.py" />
     <MESSAGE value="+phantom_generator.py&#10;+New Datasets" />
-    <option name="LAST_COMMIT_MESSAGE" value="+phantom_generator.py&#10;+New Datasets" />
+    <MESSAGE value="+Trying LBP&#10;*Changes to modulator.py for presentatbility" />
+    <option name="LAST_COMMIT_MESSAGE" value="+Trying LBP&#10;*Changes to modulator.py for presentatbility" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

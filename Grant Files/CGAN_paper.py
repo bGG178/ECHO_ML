@@ -3,6 +3,74 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
+import numpy as np
+import matplotlib.pyplot as plt
+from Construction.modulator import build_circulant_matrix, matrix_to_image
+from Construction.phantom_generator import PhantomGenerator
+
+
+"""
+Potential improvements
+
+Here are some strategies to lower the generator loss in your GAN training:
+
+### 1. **Adjust Learning Rates**
+   - Reduce the learning rate of the generator or discriminator to stabilize training.
+   - Example:
+     ```python
+     opt_G = optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.999))
+     opt_D = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+     ```
+
+### 2. **Balance Training Between Generator and Discriminator**
+   - Train the generator more frequently than the discriminator (e.g., one generator step for every two discriminator steps).
+   - Example:
+     ```python
+     if i % 2 == 0:  # Train generator every other step
+         g_loss.backward()
+         opt_G.step()
+     ```
+
+### 3. **Use Label Smoothing**
+   - Apply label smoothing to the discriminator's labels to make it less confident, helping the generator learn better.
+   - Example:
+     ```python
+     valid = torch.full((batch_size, 1), 0.9, device=device)  # Use 0.9 instead of 1.0
+     fake = torch.zeros(batch_size, 1, device=device)
+     ```
+
+### 4. **Add Noise to Discriminator Inputs**
+   - Add small random noise to the real and fake inputs to the discriminator to make it less confident.
+   - Example:
+     ```python
+     real_imgs += torch.randn_like(real_imgs) * 0.05
+     gen_imgs += torch.randn_like(gen_imgs) * 0.05
+     ```
+
+### 5. **Improve Generator Architecture**
+   - Add more layers, use skip connections, or increase the number of filters in the generator to improve its capacity.
+
+### 6. **Use a Different Loss Function**
+   - Replace binary cross-entropy loss with a loss function like Wasserstein loss or Least Squares GAN loss for more stable training.
+   - Example (Least Squares GAN):
+     ```python
+     criterion = nn.MSELoss()
+     ```
+
+### 7. **Pretrain the Generator**
+   - Pretrain the generator on a simpler task (e.g., reconstructing real images) before adversarial training.
+
+### 8. **Gradient Penalty**
+   - Add a gradient penalty term to the discriminator loss to prevent it from becoming too strong (e.g., WGAN-GP).
+
+### 9. **Normalize Inputs**
+   - Ensure that all inputs (real images, generated images, and conditions) are properly normalized to the same range (e.g., [-1, 1]).
+
+### 10. **Increase Batch Size**
+   - Use a larger batch size to stabilize gradients and improve training dynamics.
+
+By applying one or more of these strategies, you can help reduce the generator loss and improve the overall performance of your GAN.
+"""
 
 #https://www.sciencedirect.com/science/article/pii/S0955598624000463
 
@@ -56,49 +124,75 @@ class UNetGenerator(nn.Module):
 
     def forward(self, x):
         # Encoder
-        e1 = self.enc1(x)  # e.g., for input (1, 16, 15), output ~ (base_filters, 8, ~8)
-        e2 = self.enc2(e1)  # (base_filters*2, 4, ~4)
-        b = self.bottleneck(e2)  # (base_filters*4, 2, ~2)
+        e1 = self.enc1(x)  # e.g., for input (1, 16, 15), output ~ (base_filters, H/2, W/2)
+        e2 = self.enc2(e1)  # (base_filters*2, H/4, W/4)
+        b = self.bottleneck(e2)  # (base_filters*4, H/8, W/8)
 
         # Decoder with skip connection from encoder
-        d2 = self.dec2(b)  # (base_filters*2, 4, ~4)
-        d2 = torch.cat([d2, e2], dim=1)  # Concatenate along channel dim -> (base_filters*4, 4, ~4)
+        d2 = self.dec2(b)  # (base_filters*2, H/4, W/4)
+        d2 = torch.cat([d2, self._crop_to_match(d2, e2)], dim=1)  # Concatenate along channel dim
 
-        d1 = self.dec1(d2)  # (base_filters, 8, ~8)
-        d1 = torch.cat([d1, e1], dim=1)  # -> (base_filters*2, 8, ~8)
+        d1 = self.dec1(d2)  # (base_filters, H/2, W/2)
+        d1 = torch.cat([d1, self._crop_to_match(d1, e1)], dim=1)  # Concatenate along channel dim
 
-        out = self.final(d1)  # Upsample to (out_channels, ~16, ~16) or adjust depending on input dims
+        out = self.final(d1)  # Upsample to (out_channels, H, W)
         return out
+
+    def _crop_to_match(self, source, target):
+        """
+        Crops the source tensor to match the spatial dimensions of the target tensor.
+        """
+        _, _, h, w = target.size()
+        return source[:, :, :h, :w]
 
 
 # Discriminator conditioned on the capacitance measurement
 class Discriminator(nn.Module):
-    def __init__(self, condition_shape=(1, 16, 15), in_channels=1):
+    def __init__(self, condition_shape=(1, 66, 66), in_channels=1):
         super(Discriminator, self).__init__()
-        # The discriminator takes the generated (or real) image and the condition.
-        # We upsample the condition to match the image spatial dimensions (assumed here to be 16x16 or similar).
-        self.disc = nn.Sequential(
-            nn.Conv2d(in_channels + 1, 64, kernel_size=4, stride=2, padding=1),  # image + condition
+        self.conv_layers = nn.Sequential(
+            nn.Conv2d(in_channels + 1, 64, kernel_size=4, stride=2, padding=1),  # Output: (64, 33, 33)
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),  # Output: (128, 16, 16)
             nn.BatchNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Flatten(),
-            nn.Linear(128 * 4 * 4, 1),  # Adjust dimensions if image size changes
-            nn.Sigmoid()  # Output probability
+            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),  # Output: (256, 8, 8)
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),  # Output: (512, 4, 4)
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True),
         )
 
+        dummy_input = torch.zeros(1, in_channels + 1, *condition_shape[1:])
+        flattened_size = self._get_flattened_size(dummy_input)
+        print(f"Flattened size: {flattened_size}"),  # Debugging line
+
+        self.fc_layers = nn.Sequential(
+
+            nn.Flatten(),
+            nn.Linear(flattened_size, 1),
+            nn.Sigmoid()
+        )
+
+    def _get_flattened_size(self, x):
+        x = self.conv_layers(x)
+        return x.numel()
+
     def forward(self, image, condition):
-        # Upsample condition to match image size
+        # Ensure the condition is resized to match the image dimensions
         condition_upsampled = F.interpolate(condition, size=image.shape[2:], mode='bilinear', align_corners=False)
-        # Concatenate along the channel dimension
+        # Concatenate the image and condition along the channel dimension
         x = torch.cat([image, condition_upsampled], dim=1)
-        validity = self.disc(x)
+        x = self.conv_layers(x)
+        #print(f"Shape before Linear layer: {x.shape}")  # Debugging line
+        x = x.view(x.size(0), -1)  # Flatten the tensor
+        validity = self.fc_layers(x)
         return validity
 
 
 # Training loop for CGAN-ECT using U-Net generator
-def train_cgan_ect(generator, discriminator, dataloader, num_epochs=100, device='cuda'):
+def train_cgan_ect(generator, discriminator, dataloader, num_epochs=2, device='cuda'):
     # Optimizers for both networks
     opt_G = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
     opt_D = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
@@ -114,6 +208,10 @@ def train_cgan_ect(generator, discriminator, dataloader, num_epochs=100, device=
             real_imgs = real_imgs.to(device)
             cond_input = cond_input.to(device)
 
+            # Resize real images and condition input to a consistent size
+            real_imgs = F.interpolate(real_imgs, size=(64, 64), mode='bilinear', align_corners=False)
+            cond_input = F.interpolate(cond_input, size=(64, 64), mode='bilinear', align_corners=False)
+
             # Adversarial ground truths
             valid = torch.ones(batch_size, 1, device=device)
             fake = torch.zeros(batch_size, 1, device=device)
@@ -124,6 +222,8 @@ def train_cgan_ect(generator, discriminator, dataloader, num_epochs=100, device=
             opt_G.zero_grad()
             # Generator produces an image given the condition (raw capacitance) measurement.
             gen_imgs = generator(cond_input)
+            # Resize generated images to match the discriminator's expected input size
+            gen_imgs = F.interpolate(gen_imgs, size=(64, 64), mode='bilinear', align_corners=False)
             # Loss measures generator's ability to fool the discriminator
             g_loss = criterion(discriminator(gen_imgs, cond_input), valid)
             g_loss.backward()
@@ -151,17 +251,100 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
+
     # Create U-Net generator and discriminator instances
     generator = UNetGenerator(in_channels=1, out_channels=1, base_filters=64)
-    discriminator = Discriminator(condition_shape=(1, 16, 15), in_channels=1)
+    discriminator = Discriminator(condition_shape=(1, 66, 66), in_channels=1)
+
+    # Load the combined dataset
+    datafile = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\combined_data.npy"
+    combined_data = np.load(datafile, allow_pickle=True)
+
+    # Split the dataset into training (70%) and testing (30%)
+    train_size = int(0.7 * len(combined_data))
+    train_data = combined_data[:train_size]
+    test_data = combined_data[train_size:]
+
+
+    """WRONG, for some reason its piping measurements into both capacitance and real img, when it should just be doing
+    capacitance. Fix!"""
+    # Prepare the training dataset
+    phantom_generator = PhantomGenerator(12, 1, 128)
+
+    train_real_images = torch.tensor(
+        np.array([phantom_generator.generate_phantom(data['objects']) for data in train_data]),
+        dtype=torch.float32
+    ).unsqueeze(1)
+
+    train_capacitance = torch.tensor(
+        np.array([build_circulant_matrix(data['measurements']) for data in train_data]),
+        dtype=torch.float32
+    ).unsqueeze(1)
+
+    train_dataset = TensorDataset(train_real_images, train_capacitance)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+    # Prepare the testing dataset
+    test_real_images = torch.tensor(
+        np.array([phantom_generator.generate_phantom(data['objects']) for data in test_data]),
+        dtype=torch.float32
+    ).unsqueeze(1)
+
+    test_capacitance = torch.tensor(
+        np.array([build_circulant_matrix(data['measurements']) for data in test_data]),
+        dtype=torch.float32
+    ).unsqueeze(1)
+
+    test_dataset = TensorDataset(test_real_images, test_capacitance)
+    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+
+    #for i, (real_img, cond_input) in enumerate(test_dataloader):
+    #    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
+    #    ax1.set_title("Actual Phantom")
+    #    ax1.imshow(real_img.cpu().squeeze(0).squeeze(0), cmap='gray')
+    #    ax2.imshow(cond_input.cpu().squeeze(0).squeeze(0), cmap='gray')
+    #    plt.tight_layout()
+    #    plt.show()
+
+    # TRAINING!!!Train the CGAN-ECT with U-Net generator!!!!!!!!!!!!!!!!!
+    train_cgan_ect(generator, discriminator, train_dataloader, num_epochs=2, device=device)
+
+    # Testing loop with visualization
+    generator.eval()
+    with torch.no_grad():
+        for i, (real_img, cond_input) in enumerate(test_dataloader):
+            real_img = real_img.to(device)
+            cond_input = cond_input.to(device)
+
+            # Generate reconstructed image
+            reconstructed_img = generator(cond_input).cpu().squeeze(0).squeeze(0)
+
+            reconstructed_img -= reconstructed_img.min()
+            reconstructed_img /= reconstructed_img.max()
+            # Display every 100th test result
+            if i % 100 == 0:
+                real_img = real_img.cpu().squeeze(0).squeeze(0)
+                cond_input = cond_input.cpu().squeeze(0).squeeze(0)
+
+                # Plot the actual phantom, capacitance image, and reconstruction
+                fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
+                ax1.imshow(real_img, cmap='gray')
+                ax1.set_title("Actual Phantom")
+                ax2.imshow(cond_input, cmap='gray')
+                ax2.set_title("Capacitance Image")
+                ax3.imshow(reconstructed_img, cmap='gray')
+                ax3.set_title("Reconstruction Attempt")
+                plt.tight_layout()
+                plt.show()
 
     # Dummy dataset:
     # real_imgs: simulated tomography images (e.g., size 16x16, adjust as needed)
     # cond_input: raw capacitance measurements (16x15)
-    real_images = torch.randn(100, 1, 16, 16)  # Real images (can be adjusted to the desired resolution)
-    raw_capacitance = torch.randn(100, 1, 16, 15)  # 16x15 raw capacitance input
-    dataset = TensorDataset(real_images, raw_capacitance)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    #real_images = torch.randn(100, 1, 16, 16)  # Real images (can be adjusted to the desired resolution)
+    #raw_capacitance = torch.randn(100, 1, 16, 15)  # 16x15 raw capacitance input
+    #dataset = TensorDataset(real_images, raw_capacitance)
+    #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     # Train the CGAN-ECT with U-Net generator
-    train_cgan_ect(generator, discriminator, dataloader, num_epochs=10, device=device)
+    #train_cgan_ect(generator, discriminator, dataloader, num_epochs=10, device=device)
