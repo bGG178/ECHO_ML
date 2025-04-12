@@ -4,12 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder">
-      <change afterPath="$PROJECT_DIR$/Bruce Files/ECHO_CGANv1.0.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/ECHO_ML.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/ECHO_ML.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+FIRST ECHO PROTOTYPE">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_gpt.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_gpt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -25,6 +22,7 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="SWAP_SIDES_IN_COMPARE_BRANCHES" value="true" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {
@@ -52,25 +50,82 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.CGAN_gpt.executor": "Run",
-    "Python.ECHO_CGANv1.0.executor": "Run",
-    "Python.main.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "last_opened_file_path": "C:/Users/welov/Documents/GitHub/conditional_gan",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.CGAN_gpt.executor&quot;: &quot;Run&quot;,
+    &quot;Python.CGAN_paper.executor&quot;: &quot;Run&quot;,
+    &quot;Python.LBP.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.modulator.executor&quot;: &quot;Run&quot;,
+    &quot;Python.phantom_generator.executor&quot;: &quot;Run&quot;,
+    &quot;Python.sens_matrix.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/welov/Documents/GitHub/conditional_gan&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction" />
+      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
+      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\ECHO_CGAN_UNET" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\DATA" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\CGAN Github Lonatang" />
-      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\ML Course python files" />
-      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Test code" />
     </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="modulator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="ECHO_ML" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction\modulator.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="phantom_generator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="ECHO_ML" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Grant Files/Phantom Generators" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction\phantom_generator.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.modulator" />
+        <item itemvalue="Python.phantom_generator" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -112,14 +167,110 @@
       <option name="project" value="LOCAL" />
       <updated>1743889781117</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper">
+      <option name="closed" value="true" />
+      <created>1744065680488</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1744065680488</updated>
+    </task>
+    <task id="LOCAL-00005" summary="+Modulator.py">
+      <option name="closed" value="true" />
+      <created>1744124505572</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1744124505572</updated>
+    </task>
+    <task id="LOCAL-00006" summary="+Modulator.py">
+      <option name="closed" value="true" />
+      <created>1744124521930</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1744124521930</updated>
+    </task>
+    <task id="LOCAL-00007" summary="+phantom_generator.py&#10;+New Datasets">
+      <option name="closed" value="true" />
+      <created>1744128228063</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1744128228063</updated>
+    </task>
+    <task id="LOCAL-00008" summary="+Trying LBP&#10;*Changes to modulator.py for presentatbility">
+      <option name="closed" value="true" />
+      <created>1744144792853</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1744144792853</updated>
+    </task>
+    <task id="LOCAL-00009" summary="+FIRST ECHO PROTOTYPE">
+      <option name="closed" value="true" />
+      <created>1744165137370</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1744165137370</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="RECENT_FILTERS">
+      <map>
+        <entry key="Branch">
+          <value>
+            <list>
+              <RecentGroup>
+                <option name="FILTER_VALUES">
+                  <option value="origin/master" />
+                </option>
+              </RecentGroup>
+              <RecentGroup>
+                <option name="FILTER_VALUES">
+                  <option value="master" />
+                </option>
+              </RecentGroup>
+            </list>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="origin/master" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Creating folders and main test code" />
     <MESSAGE value="+Python ML tutorial files" />
     <MESSAGE value="+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder" />
-    <option name="LAST_COMMIT_MESSAGE" value="+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder" />
+    <MESSAGE value="*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper" />
+    <MESSAGE value="+Modulator.py" />
+    <MESSAGE value="+phantom_generator.py&#10;+New Datasets" />
+    <MESSAGE value="+Trying LBP&#10;*Changes to modulator.py for presentatbility" />
+    <MESSAGE value="+FIRST ECHO PROTOTYPE" />
+    <option name="LAST_COMMIT_MESSAGE" value="+FIRST ECHO PROTOTYPE" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
