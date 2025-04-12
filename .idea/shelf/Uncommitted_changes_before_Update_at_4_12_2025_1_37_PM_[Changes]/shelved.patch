@@ -1,0 +1,662 @@
+Index: Bruce Files/ECHO_CGANv1.0.py
+===================================================================
+diff --git a/Bruce Files/ECHO_CGANv1.0.py b/Bruce Files/ECHO_CGANv1.0.py
+deleted file mode 100644
+--- a/Bruce Files/ECHO_CGANv1.0.py	(revision e98faa04aef4ce470784fcf5929ea5738d94ff87)
++++ /dev/null	(revision e98faa04aef4ce470784fcf5929ea5738d94ff87)
+@@ -1,120 +0,0 @@
+-# ECHO_CGANv1.0
+-# Author: Bruce Noble
+-# This algorithm is being developed for the PARSEC - ECHO system
+-# This algorithm will take in a 16x16 matrix of capacitance measurements and determine the cross-sectional area
+-# of the sample between the electrodes
+-
+-import torch
+-import torch.nn as nn
+-import torch.optim as optim
+-from torch.utils.data import Dataset, DataLoader
+-import torchvision.transforms as transforms
+-import numpy as np
+-import matplotlib.pyplot as plt
+-import os
+-import random
+-from glob import glob
+-from PIL import Image
+-from pathlib import Path
+-
+-## hyperparameters
+-BATCH_SIZE = 16  # number of samples per batch
+-IMAGE_SIZE = 16  # width/Height of square images
+-LATENT_DIM = 100  # dimensionality of noise vector for Generator
+-EPOCHS = 100  # number of training epochs
+-LEARNING_RATE = 2e-4  # learning rate for optimizers
+-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # training on GPU if available
+-
+-## dataset from triangleSims
+-class FolderECTDataset(Dataset):
+-    def __init__(self, root_dir="C:/Users/scien/PycharmProjects/ECHO_ML/DATA/MLTriangleTrainingData"):
+-        self.sample_paths = []
+-        for folder in glob(os.path.join(root_dir, "*")):
+-            image_files = glob(os.path.join(folder, "*.jpg"))
+-            if image_files:
+-                area = int(os.path.basename(folder))
+-                for img_file in image_files:
+-                    self.sample_paths.append((img_file, area))
+-
+-        self.transform = transforms.Compose([
+-            transforms.Grayscale(),
+-            transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+-            transforms.ToTensor(),
+-            transforms.Normalize([0.5], [0.5])
+-        ])
+-
+-    def __len__(self):
+-        return len(self.sample_paths)
+-
+-    def __getitem__(self, idx):
+-        img_path, area = self.sample_paths[idx]
+-        capacitance_data = Image.open(img_path).convert("RGB")
+-        capacitance_data = self.transform(capacitance_data)
+-
+-        area = torch.tensor(area, dtype=torch.float32)
+-        return capacitance_data, area
+-
+-## create network class
+-class NeuralNetwork(nn.Module):
+-    def __init__(self):
+-        super().__init__()
+-        self.flatten = nn.Flatten()
+-        self.stack = nn.Sequential(
+-            nn.Conv2d(3, 16, 3, padding=1),
+-            nn.Conv2d(16, 32, 3, padding=1),
+-            nn.Conv2d(32, 64, 3, padding=1),
+-            nn.MaxPool2d(2, 2),
+-            nn.Linear(64*8*8, 512),
+-            nn.Linear(512, 1)
+-        )
+-
+-    def forward(self, x):
+-        x = self.flatten(x)
+-        logits = self.stack(x)
+-        return logits
+-
+-## training
+-model = NeuralNetwork().to(DEVICE)
+-
+-loss_fn = nn.CrossEntropyLoss()
+-optimizer = torch.optim.SGD(model.parameters(), lr=LEARNING_RATE)
+-
+-def train_loop(dataloader, model, loss_fn, optimizer):
+-    size = len(dataloader.dataset)
+-    # set the model to training mode - important for batch normalization and dropout layers
+-    # unnecessary in this situation but added for best practice
+-    model.train()
+-    for batch, (X, y) in enumerate(dataloader):
+-        # compute prediction and loss
+-        pred = model(X)
+-        loss = loss_fn(pred, y)
+-
+-        # backpropagation
+-        loss.backward()
+-        optimizer.step()
+-        optimizer.zero_grad()
+-
+-        if batch % 100 == 0:
+-            loss, current = loss.item(), batch * batch_size + len(X)
+-            print(f'loss: {loss:>7f} [{current:>5d}/{size:>5d}]')
+-
+-def test_loop(dataloader, model, loss_fn):
+-    # set the model to evaluation mode - important for batch normalization and dropout layers
+-    # unnecessary in this situation but added for best practice
+-    model.eval()
+-    size = len(dataloader.dataset)
+-    num_batches = len(dataloader)
+-    test_loss, correct = 0, 0
+-
+-    # evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
+-    # also serves to reduce unnecessary gradient computations and memory usage for tensors with requires_grad=True
+-    with torch.no_grad():
+-        for X, y in dataloader:
+-            pred = model(X)
+-            test_loss += loss_fn(pred, y).item()
+-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+-
+-    test_loss /= num_batches
+-    correct /= size
+-    print(f'Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n')
+-
+Index: Grant Files/CGAN_gpt.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import torch\r\nimport torch.nn as nn\r\nimport torch.optim as optim\r\nfrom torch.utils.data import Dataset, DataLoader\r\nimport torchvision.transforms as transforms\r\nimport numpy as np\r\nimport matplotlib.pyplot as plt\r\nimport os\r\nimport random\r\nfrom glob import glob\r\nfrom PIL import Image\r\nfrom pathlib import Path\r\n\r\n# --- Hyperparameters ---\r\nBATCH_SIZE = 16  # Number of samples per batch\r\nIMAGE_SIZE = 16  # Width/Height of square images\r\nLATENT_DIM = 100  # Dimensionality of noise vector for Generator\r\nEPOCHS = 100  # Number of training epochs\r\nLEARNING_RATE = 2e-4  # Learning rate for optimizers\r\nDEVICE = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")  # Training on GPU if available\r\n\r\n\r\ndef save_generated_images(generator, epoch, measurement_sample):\r\n    generator.eval()\r\n    with torch.no_grad():\r\n        z = torch.randn(measurement_sample.size(0), LATENT_DIM, device=DEVICE)\r\n        gen_imgs = generator(z, measurement_sample.to(DEVICE))\r\n        gen_imgs = gen_imgs.cpu().numpy()\r\n\r\n    os.makedirs(\"outputs\", exist_ok=True)\r\n    fig, axs = plt.subplots(1, 5, figsize=(15, 3))\r\n    for i in range(5):\r\n        axs[i].imshow(gen_imgs[i][0], cmap='gray')\r\n        axs[i].axis('off')\r\n    plt.savefig(f\"outputs/epoch_{epoch + 1:03d}.png\")\r\n    plt.close()\r\n\r\n\r\n# ---------------------------\r\n# Dataset for ECT from folders\r\n# ---------------------------\r\nclass FolderECTDataset(Dataset):\r\n    def __init__(self, root_dir=\"C:/Users/welov/PycharmProjects/ECHO_ML/DATA/MLTriangleTrainingData\"):\r\n        self.sample_paths = []\r\n        for folder in glob(os.path.join(root_dir, \"*\")):\r\n            image_files = glob(os.path.join(folder, \"*.jpg\"))\r\n            if image_files:\r\n                area = int(os.path.basename(folder))\r\n                for img_file in image_files:\r\n                    self.sample_paths.append((img_file, area))\r\n\r\n        self.transform = transforms.Compose([\r\n            transforms.Grayscale(),\r\n            transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),\r\n            transforms.ToTensor(),\r\n            transforms.Normalize([0.5], [0.5])\r\n        ])\r\n\r\n    def __len__(self):\r\n        return len(self.sample_paths)\r\n\r\n    def __getitem__(self, idx):\r\n        img_path, area = self.sample_paths[idx]\r\n        capacitance_data = Image.open(img_path).convert(\"RGB\")\r\n        capacitance_data = self.transform(capacitance_data)\r\n\r\n        area = torch.tensor(area, dtype=torch.float32)\r\n        return capacitance_data, area\r\n\r\n\r\n# ---------------------------\r\n# Generator Model Definition\r\n# ---------------------------\r\nclass Generator(nn.Module):\r\n    def __init__(self):\r\n        super(Generator, self).__init__()\r\n        self.model = nn.Sequential(\r\n            nn.Linear(256 + LATENT_DIM, 128),\r\n            nn.ReLU(True),\r\n            nn.Linear(128, 256),\r\n            nn.BatchNorm1d(256),\r\n            nn.ReLU(True),\r\n            nn.Linear(256, IMAGE_SIZE * IMAGE_SIZE),\r\n            nn.Tanh()\r\n        )\r\n\r\n    def forward(self, z, measurement):\r\n        flattened = measurement.view(measurement.size(0), -1)\r\n        x = torch.cat([z, flattened], dim=1)\r\n        img = self.model(x)\r\n        img = img.view(-1, 1, IMAGE_SIZE, IMAGE_SIZE)\r\n        return img\r\n\r\n\r\n# -------------------------------\r\n# Discriminator Model Definition\r\n# -------------------------------\r\nclass Discriminator(nn.Module):\r\n    def __init__(self):\r\n        super(Discriminator, self).__init__()\r\n        self.model = nn.Sequential(\r\n            nn.Linear(256 + 256, 512),  # Concatenated size of image and measurement\r\n            nn.LeakyReLU(0.2, inplace=True),\r\n            nn.Linear(512, 128),\r\n            nn.LeakyReLU(0.2, inplace=True),\r\n            nn.Linear(128, 1),\r\n            nn.Sigmoid()\r\n        )\r\n\r\n    def forward(self, img, measurement):\r\n        # Ensure img is a 4D tensor\r\n        if img.ndimension() == 4:\r\n            img = img.view(img.size(0), -1)  # Flatten to (batch_size, 256)\r\n        elif img.ndimension() == 2:\r\n            img = img.view(img.size(0), -1)  # Ensure it's (batch_size, 256)\r\n        else:\r\n            print(f\"Unexpected img dimension: {img.ndimension()}\")\r\n\r\n        img_flat = img\r\n        measurement_flat = measurement.view(measurement.size(0), -1)  # Flatten measurement to (batch_size, 256)\r\n\r\n        # Concatenate the flattened image and measurement tensor\r\n        x = torch.cat([img_flat, measurement_flat], dim=1)\r\n\r\n        validity = self.model(x)\r\n        return validity\r\n\r\n\r\n# -----------------------------\r\n# Training Function for CGAN\r\n# -----------------------------\r\ndef train():\r\n    dataset = FolderECTDataset()\r\n    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)\r\n\r\n    generator = Generator().to(DEVICE)\r\n    discriminator = Discriminator().to(DEVICE)\r\n\r\n    optimizer_G = optim.Adam(generator.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))\r\n    optimizer_D = optim.Adam(discriminator.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))\r\n    loss_fn = nn.BCELoss()\r\n\r\n    for epoch in range(EPOCHS):\r\n        for i, (real_imgs, measurement) in enumerate(dataloader):  # Corrected order\r\n            batch_size = measurement.size(0)\r\n            real_imgs = real_imgs.to(DEVICE)\r\n            measurement = measurement.to(DEVICE)\r\n\r\n            valid = torch.ones((batch_size, 1), device=DEVICE)\r\n            fake = torch.zeros((batch_size, 1), device=DEVICE)\r\n\r\n            z = torch.randn(batch_size, LATENT_DIM, device=DEVICE)\r\n            gen_imgs = generator(z, measurement)\r\n\r\n            optimizer_G.zero_grad()\r\n            g_loss = loss_fn(discriminator(gen_imgs, measurement), valid)\r\n            g_loss.backward()\r\n            optimizer_G.step()\r\n\r\n            optimizer_D.zero_grad()\r\n            real_loss = loss_fn(discriminator(real_imgs, measurement), valid)\r\n            fake_loss = loss_fn(discriminator(gen_imgs.detach(), measurement), fake)\r\n            d_loss = (real_loss + fake_loss) / 2\r\n            d_loss.backward()\r\n            optimizer_D.step()\r\n\r\n        print(f\"Epoch [{epoch + 1}/{EPOCHS}] | D Loss: {d_loss.item():.4f} | G Loss: {g_loss.item():.4f}\")\r\n        save_generated_images(generator, epoch, measurement[:5])\r\n\r\n    torch.save(generator.state_dict(), \"generator_cgan_ect.pth\")\r\n    torch.save(discriminator.state_dict(), \"discriminator_cgan_ect.pth\")\r\n\r\n\r\nif __name__ == \"__main__\":\r\n    train()\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Grant Files/CGAN_gpt.py b/Grant Files/CGAN_gpt.py
+--- a/Grant Files/CGAN_gpt.py	(revision e98faa04aef4ce470784fcf5929ea5738d94ff87)
++++ b/Grant Files/CGAN_gpt.py	(date 1744328725087)
+@@ -1,3 +1,13 @@
++"""
++To Do:
++Double check ground truth image and reconstruction are set up properly
++Increase reconstruction accuracy
++Add more comments
++Refine losses
++Have the algorithm guess the area based on capacitance data
++
++"""
++
+ import torch
+ import torch.nn as nn
+ import torch.optim as optim
+@@ -10,16 +20,18 @@
+ from glob import glob
+ from PIL import Image
+ from pathlib import Path
++from skimage.metrics import structural_similarity  as ssim  # Add this import
+ 
+ # --- Hyperparameters ---
+-BATCH_SIZE = 16  # Number of samples per batch
+-IMAGE_SIZE = 16  # Width/Height of square images
++BATCH_SIZE = 64  # Number of samples per batch
++IMAGE_SIZE_X = 15  # Width of images
++IMAGE_SIZE_Y = 16  # Height of images
+ LATENT_DIM = 100  # Dimensionality of noise vector for Generator
+-EPOCHS = 100  # Number of training epochs
+-LEARNING_RATE = 2e-4  # Learning rate for optimizers
++EPOCHS = 10  # Number of training epochs
++LEARNING_RATE_D = 0.00001  # Learning rate for discriminator
++LEARNING_RATE_G = 0.00004  # Learning rate for generator
+ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Training on GPU if available
+ 
+-
+ def save_generated_images(generator, epoch, measurement_sample):
+     generator.eval()
+     with torch.no_grad():
+@@ -32,9 +44,44 @@
+     for i in range(5):
+         axs[i].imshow(gen_imgs[i][0], cmap='gray')
+         axs[i].axis('off')
+-    plt.savefig(f"outputs/epoch_{epoch + 1:03d}.png")
++    plt.savefig(f"outputs/epoch_{epoch+1:03d}.png")
+     plt.close()
+ 
++def calculate_mse(img1, img2):
++    # Ensure img1 and img2 have the same shape
++    assert img1.shape == img2.shape, f"Shape mismatch: {img1.shape} vs {img2.shape}"
++    return np.mean((img1 - img2) ** 2)
++
++def calculate_ssim(img1, img2):
++    # Ensure img1 and img2 have the same shape
++    assert img1.shape == img2.shape, f"Shape mismatch: {img1.shape} vs {img2.shape}"
++    return ssim(img1, img2, data_range=img2.max() - img2.min())
++
++def reconstruct_image(generator, measurement_sample, ground_truth_image=None, output_path="reconstructed_image.png"):
++    generator.eval()
++    with torch.no_grad():
++        z = torch.randn(measurement_sample.size(0), LATENT_DIM, device=DEVICE)
++        measurement_sample = measurement_sample.view(-1, 1)  # Ensure measurement_sample has the correct dimensions
++        gen_imgs = generator(z, measurement_sample.to(DEVICE))
++        gen_imgs = gen_imgs.cpu().numpy()
++
++    if measurement_sample.size(0) == 1:
++        fig, ax = plt.subplots(figsize=(3, 3))
++        ax.imshow(gen_imgs[0][0], cmap='gray')
++        ax.axis('off')
++    else:
++        fig, axs = plt.subplots(1, measurement_sample.size(0), figsize=(15, 3))
++        for i in range(measurement_sample.size(0)):
++            axs[i].imshow(gen_imgs[i][0], cmap='gray')
++            axs[i].axis('off')
++    plt.savefig(output_path)
++    plt.close()
++
++    if ground_truth_image is not None:
++        ground_truth_image = ground_truth_image.cpu().numpy()
++        mse = calculate_mse(gen_imgs[0][0], ground_truth_image[0][0])
++        ssim_value = calculate_ssim(gen_imgs[0][0], ground_truth_image[0][0])
++        print(f"MSE: {mse:.4f}, SSIM: {ssim_value:.4f}")
+ 
+ # ---------------------------
+ # Dataset for ECT from folders
+@@ -49,9 +96,18 @@
+                 for img_file in image_files:
+                     self.sample_paths.append((img_file, area))
+ 
++        # Remove one image at random for ground truth testing
++        self.ground_truth_image_path = Path(r"C:/Users/welov/PycharmProjects/ECHO_ML/DATA/MLTriangleTrainingData/4/4.960.jpg")
++        # Save the ground truth image as "base_image.png"
++        ground_truth_image = Image.open(self.ground_truth_image_path).convert("L")
++        ground_truth_image.save("base_image.png")
++
++        print(f"Ground truth image path: {self.ground_truth_image_path}")
++
++
+         self.transform = transforms.Compose([
+             transforms.Grayscale(),
+-            transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
++            transforms.Resize((IMAGE_SIZE_Y, IMAGE_SIZE_X)),
+             transforms.ToTensor(),
+             transforms.Normalize([0.5], [0.5])
+         ])
+@@ -67,7 +123,6 @@
+         area = torch.tensor(area, dtype=torch.float32)
+         return capacitance_data, area
+ 
+-
+ # ---------------------------
+ # Generator Model Definition
+ # ---------------------------
+@@ -75,23 +130,25 @@
+     def __init__(self):
+         super(Generator, self).__init__()
+         self.model = nn.Sequential(
+-            nn.Linear(256 + LATENT_DIM, 128),
++            nn.Linear(LATENT_DIM + 1, 256),  # Increased number of neurons
++            nn.ReLU(True),
++            nn.Linear(256, 512),
++            nn.BatchNorm1d(512),
+             nn.ReLU(True),
+-            nn.Linear(128, 256),
+-            nn.BatchNorm1d(256),
++            nn.Linear(512, 1024),
++            nn.BatchNorm1d(1024),
+             nn.ReLU(True),
+-            nn.Linear(256, IMAGE_SIZE * IMAGE_SIZE),
++            nn.Linear(1024, IMAGE_SIZE_Y * IMAGE_SIZE_X),
+             nn.Tanh()
+         )
+ 
+     def forward(self, z, measurement):
+-        flattened = measurement.view(measurement.size(0), -1)
+-        x = torch.cat([z, flattened], dim=1)
++        measurement = measurement.view(-1, 1)
++        x = torch.cat([z, measurement], dim=1)
+         img = self.model(x)
+-        img = img.view(-1, 1, IMAGE_SIZE, IMAGE_SIZE)
++        img = img.view(-1, 1, IMAGE_SIZE_Y, IMAGE_SIZE_X)
+         return img
+ 
+-
+ # -------------------------------
+ # Discriminator Model Definition
+ # -------------------------------
+@@ -99,33 +156,27 @@
+     def __init__(self):
+         super(Discriminator, self).__init__()
+         self.model = nn.Sequential(
+-            nn.Linear(256 + 256, 512),  # Concatenated size of image and measurement
++            nn.Linear((IMAGE_SIZE_Y * IMAGE_SIZE_X) + 1, 512),  # Increased number of neurons
++            nn.LeakyReLU(0.2, inplace=True),
++            nn.Linear(512, 256),
+             nn.LeakyReLU(0.2, inplace=True),
+-            nn.Linear(512, 128),
++            nn.Linear(256, 128),
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Linear(128, 1),
+             nn.Sigmoid()
+         )
+ 
+     def forward(self, img, measurement):
+-        # Ensure img is a 4D tensor
+         if img.ndimension() == 4:
+-            img = img.view(img.size(0), -1)  # Flatten to (batch_size, 256)
++            img = img.view(img.size(0), -1)
+         elif img.ndimension() == 2:
+-            img = img.view(img.size(0), -1)  # Ensure it's (batch_size, 256)
+-        else:
+-            print(f"Unexpected img dimension: {img.ndimension()}")
+-
++            img = img.view(img.size(0), -1)
+         img_flat = img
+-        measurement_flat = measurement.view(measurement.size(0), -1)  # Flatten measurement to (batch_size, 256)
+-
+-        # Concatenate the flattened image and measurement tensor
++        measurement_flat = measurement.view(measurement.size(0), -1)
+         x = torch.cat([img_flat, measurement_flat], dim=1)
+-
+         validity = self.model(x)
+         return validity
+ 
+-
+ # -----------------------------
+ # Training Function for CGAN
+ # -----------------------------
+@@ -136,8 +187,8 @@
+     generator = Generator().to(DEVICE)
+     discriminator = Discriminator().to(DEVICE)
+ 
+-    optimizer_G = optim.Adam(generator.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))
+-    optimizer_D = optim.Adam(discriminator.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))
++    optimizer_G = optim.Adam(generator.parameters(), lr=LEARNING_RATE_G, betas=(0.5, 0.999))
++    optimizer_D = optim.Adam(discriminator.parameters(), lr=LEARNING_RATE_D, betas=(0.5, 0.999))
+     loss_fn = nn.BCELoss()
+ 
+     for epoch in range(EPOCHS):
+@@ -170,6 +221,22 @@
+     torch.save(generator.state_dict(), "generator_cgan_ect.pth")
+     torch.save(discriminator.state_dict(), "discriminator_cgan_ect.pth")
+ 
+-
+ if __name__ == "__main__":
+     train()
++    # Load the trained generator
++    generator = Generator().to(DEVICE)
++    generator.load_state_dict(torch.load("generator_cgan_ect.pth"))
++    generator.eval()
++
++    # Example measurement sample for reconstruction
++    example_measurement = torch.tensor([0.5], dtype=torch.float32).unsqueeze(0).to(DEVICE)
++
++    # Load ground truth image for comparison (example)
++    dataset = FolderECTDataset()
++    ground_truth_image_path = dataset.ground_truth_image_path
++    if os.path.exists(ground_truth_image_path):
++        ground_truth_image = Image.open(ground_truth_image_path).convert("L")
++        ground_truth_image = transforms.ToTensor()(ground_truth_image).unsqueeze(0).to(DEVICE)
++        reconstruct_image(generator, example_measurement, ground_truth_image)
++    else:
++        print(f"Ground truth image not found at {ground_truth_image_path}")
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"AutoImportSettings\">\r\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\r\n  </component>\r\n  <component name=\"ChangeListManager\">\r\n    <list default=\"true\" id=\"9db6143a-e5ce-44c3-8333-f9b1132022cc\" name=\"Changes\" comment=\"+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder\">\r\n      <change afterPath=\"$PROJECT_DIR$/Bruce Files/ECHO_CGANv1.0.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/ECHO_ML.iml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/ECHO_ML.iml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/misc.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/misc.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/Grant Files/CGAN_gpt.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/Grant Files/CGAN_gpt.py\" afterDir=\"false\" />\r\n    </list>\r\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\r\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\r\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\r\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\r\n  </component>\r\n  <component name=\"FileTemplateManagerImpl\">\r\n    <option name=\"RECENT_TEMPLATES\">\r\n      <list>\r\n        <option value=\"Python Script\" />\r\n      </list>\r\n    </option>\r\n  </component>\r\n  <component name=\"Git.Settings\">\r\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\r\n  </component>\r\n  <component name=\"GitHubPullRequestSearchHistory\">{\r\n  &quot;lastFilter&quot;: {\r\n    &quot;state&quot;: &quot;OPEN&quot;,\r\n    &quot;assignee&quot;: &quot;bGG178&quot;\r\n  }\r\n}</component>\r\n  <component name=\"GithubPullRequestsUISettings\">{\r\n  &quot;selectedUrlAndAccountId&quot;: {\r\n    &quot;url&quot;: &quot;https://github.com/bGG178/ECHO_ML.git&quot;,\r\n    &quot;accountId&quot;: &quot;1dd39b4d-852a-4d3e-8a93-166a244b43bb&quot;\r\n  }\r\n}</component>\r\n  <component name=\"HighlightingSettingsPerFile\">\r\n    <setting file=\"file://$PROJECT_DIR$/.venv/Lib/site-packages/torch/utils/data/dataset.py\" root0=\"SKIP_INSPECTION\" />\r\n  </component>\r\n  <component name=\"ProjectColorInfo\">{\r\n  &quot;associatedIndex&quot;: 2\r\n}</component>\r\n  <component name=\"ProjectId\" id=\"2uutPLg6ZCfURDGG4NssoxMrDI2\" />\r\n  <component name=\"ProjectLevelVcsManager\" settingsEditedManually=\"true\">\r\n    <ConfirmationsSetting value=\"2\" id=\"Add\" />\r\n  </component>\r\n  <component name=\"ProjectViewState\">\r\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\r\n    <option name=\"showLibraryContents\" value=\"true\" />\r\n  </component>\r\n  <component name=\"PropertiesComponent\"><![CDATA[{\r\n  \"keyToString\": {\r\n    \"Python.CGAN_gpt.executor\": \"Run\",\r\n    \"Python.ECHO_CGANv1.0.executor\": \"Run\",\r\n    \"Python.main.executor\": \"Run\",\r\n    \"RunOnceActivity.ShowReadmeOnStart\": \"true\",\r\n    \"RunOnceActivity.git.unshallow\": \"true\",\r\n    \"git-widget-placeholder\": \"master\",\r\n    \"last_opened_file_path\": \"C:/Users/welov/Documents/GitHub/conditional_gan\",\r\n    \"settings.editor.selected.configurable\": \"com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable\"\r\n  }\r\n}]]></component>\r\n  <component name=\"RecentsManager\">\r\n    <key name=\"MoveFile.RECENT_KEYS\">\r\n      <recent name=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\DATA\" />\r\n      <recent name=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\CGAN Github Lonatang\" />\r\n      <recent name=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\ML Course python files\" />\r\n      <recent name=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\Test code\" />\r\n    </key>\r\n  </component>\r\n  <component name=\"SharedIndexes\">\r\n    <attachedChunks>\r\n      <set>\r\n        <option value=\"bundled-python-sdk-495700d161d3-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.22562.220\" />\r\n      </set>\r\n    </attachedChunks>\r\n  </component>\r\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\r\n  <component name=\"TaskManager\">\r\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\r\n      <changelist id=\"9db6143a-e5ce-44c3-8333-f9b1132022cc\" name=\"Changes\" comment=\"\" />\r\n      <created>1743110261953</created>\r\n      <option name=\"number\" value=\"Default\" />\r\n      <option name=\"presentableId\" value=\"Default\" />\r\n      <updated>1743110261953</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00001\" summary=\"Creating folders and main test code\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1743882668344</created>\r\n      <option name=\"number\" value=\"00001\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00001\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1743882668344</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00002\" summary=\"+Python ML tutorial files\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1743882765593</created>\r\n      <option name=\"number\" value=\"00002\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00002\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1743882765593</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00003\" summary=\"+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1743889781117</created>\r\n      <option name=\"number\" value=\"00003\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00003\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1743889781117</updated>\r\n    </task>\r\n    <option name=\"localTasksCounter\" value=\"4\" />\r\n    <servers />\r\n  </component>\r\n  <component name=\"VcsManagerConfiguration\">\r\n    <MESSAGE value=\"Creating folders and main test code\" />\r\n    <MESSAGE value=\"+Python ML tutorial files\" />\r\n    <MESSAGE value=\"+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder\" />\r\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder\" />\r\n  </component>\r\n  <component name=\"XDebuggerManager\">\r\n    <breakpoint-manager>\r\n      <breakpoints>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/.venv/Lib/site-packages/torch/utils/data/dataset.py</url>\r\n          <line>1</line>\r\n          <option name=\"timeStamp\" value=\"1\" />\r\n        </line-breakpoint>\r\n      </breakpoints>\r\n    </breakpoint-manager>\r\n  </component>\r\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision e98faa04aef4ce470784fcf5929ea5738d94ff87)
++++ b/.idea/workspace.xml	(date 1744490166661)
+@@ -4,12 +4,20 @@
+     <option name="autoReloadType" value="SELECTIVE" />
+   </component>
+   <component name="ChangeListManager">
+-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder">
+-      <change afterPath="$PROJECT_DIR$/Bruce Files/ECHO_CGANv1.0.py" afterDir="false" />
++    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="- removed data files from Bruce Folder">
+       <change beforePath="$PROJECT_DIR$/.idea/ECHO_ML.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/ECHO_ML.iml" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_gpt.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_gpt.py" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/Bruce Files/ECHO_CGANv1.0.py" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/Bruce Files/data/cifar-10-batches-py/batches.meta" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/Bruce Files/data/cifar-10-batches-py/data_batch_1" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/Bruce Files/data/cifar-10-batches-py/data_batch_2" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/Bruce Files/data/cifar-10-batches-py/data_batch_3" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/Bruce Files/data/cifar-10-batches-py/data_batch_4" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/Bruce Files/data/cifar-10-batches-py/data_batch_5" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/Bruce Files/data/cifar-10-batches-py/readme.html" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/Bruce Files/data/cifar-10-batches-py/test_batch" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/Bruce Files/data/cifar-10-python.tar.gz" beforeDir="false" />
+     </list>
+     <option name="SHOW_DIALOG" value="false" />
+     <option name="HIGHLIGHT_CONFLICTS" value="true" />
+@@ -25,6 +33,7 @@
+   </component>
+   <component name="Git.Settings">
+     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
++    <option name="SWAP_SIDES_IN_COMPARE_BRANCHES" value="true" />
+   </component>
+   <component name="GitHubPullRequestSearchHistory">{
+   &quot;lastFilter&quot;: {
+@@ -35,7 +44,7 @@
+   <component name="GithubPullRequestsUISettings">{
+   &quot;selectedUrlAndAccountId&quot;: {
+     &quot;url&quot;: &quot;https://github.com/bGG178/ECHO_ML.git&quot;,
+-    &quot;accountId&quot;: &quot;1dd39b4d-852a-4d3e-8a93-166a244b43bb&quot;
++    &quot;accountId&quot;: &quot;eaa18cb1-e58a-48f1-9250-c9c52ac06e87&quot;
+   }
+ }</component>
+   <component name="HighlightingSettingsPerFile">
+@@ -52,30 +61,87 @@
+     <option name="hideEmptyMiddlePackages" value="true" />
+     <option name="showLibraryContents" value="true" />
+   </component>
+-  <component name="PropertiesComponent"><![CDATA[{
+-  "keyToString": {
+-    "Python.CGAN_gpt.executor": "Run",
+-    "Python.ECHO_CGANv1.0.executor": "Run",
+-    "Python.main.executor": "Run",
+-    "RunOnceActivity.ShowReadmeOnStart": "true",
+-    "RunOnceActivity.git.unshallow": "true",
+-    "git-widget-placeholder": "master",
+-    "last_opened_file_path": "C:/Users/welov/Documents/GitHub/conditional_gan",
+-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
++  <component name="PropertiesComponent">{
++  &quot;keyToString&quot;: {
++    &quot;Python.CGAN_gpt.executor&quot;: &quot;Run&quot;,
++    &quot;Python.CGAN_paper.executor&quot;: &quot;Run&quot;,
++    &quot;Python.LBP.executor&quot;: &quot;Run&quot;,
++    &quot;Python.main.executor&quot;: &quot;Run&quot;,
++    &quot;Python.modulator.executor&quot;: &quot;Run&quot;,
++    &quot;Python.phantom_generator.executor&quot;: &quot;Run&quot;,
++    &quot;Python.sens_matrix.executor&quot;: &quot;Run&quot;,
++    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
++    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
++    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
++    &quot;last_opened_file_path&quot;: &quot;C:/Users/welov/Documents/GitHub/conditional_gan&quot;,
++    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
+   }
+-}]]></component>
++}</component>
+   <component name="RecentsManager">
+     <key name="MoveFile.RECENT_KEYS">
++      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction" />
++      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
++      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\ECHO_CGAN_UNET" />
+       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\DATA" />
+       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\CGAN Github Lonatang" />
+-      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\ML Course python files" />
+-      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Test code" />
+     </key>
++  </component>
++  <component name="RunManager" selected="Python.modulator">
++    <configuration name="modulator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
++      <module name="ECHO_ML" />
++      <option name="ENV_FILES" value="" />
++      <option name="INTERPRETER_OPTIONS" value="" />
++      <option name="PARENT_ENVS" value="true" />
++      <envs>
++        <env name="PYTHONUNBUFFERED" value="1" />
++      </envs>
++      <option name="SDK_HOME" value="" />
++      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET" />
++      <option name="IS_MODULE_SDK" value="true" />
++      <option name="ADD_CONTENT_ROOTS" value="true" />
++      <option name="ADD_SOURCE_ROOTS" value="true" />
++      <option name="SCRIPT_NAME" value="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction\modulator.py" />
++      <option name="PARAMETERS" value="" />
++      <option name="SHOW_COMMAND_LINE" value="false" />
++      <option name="EMULATE_TERMINAL" value="false" />
++      <option name="MODULE_MODE" value="false" />
++      <option name="REDIRECT_INPUT" value="false" />
++      <option name="INPUT_FILE" value="" />
++      <method v="2" />
++    </configuration>
++    <configuration name="phantom_generator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
++      <module name="ECHO_ML" />
++      <option name="ENV_FILES" value="" />
++      <option name="INTERPRETER_OPTIONS" value="" />
++      <option name="PARENT_ENVS" value="true" />
++      <envs>
++        <env name="PYTHONUNBUFFERED" value="1" />
++      </envs>
++      <option name="SDK_HOME" value="" />
++      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Grant Files/Phantom Generators" />
++      <option name="IS_MODULE_SDK" value="true" />
++      <option name="ADD_CONTENT_ROOTS" value="true" />
++      <option name="ADD_SOURCE_ROOTS" value="true" />
++      <option name="SCRIPT_NAME" value="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction\phantom_generator.py" />
++      <option name="PARAMETERS" value="" />
++      <option name="SHOW_COMMAND_LINE" value="false" />
++      <option name="EMULATE_TERMINAL" value="false" />
++      <option name="MODULE_MODE" value="false" />
++      <option name="REDIRECT_INPUT" value="false" />
++      <option name="INPUT_FILE" value="" />
++      <method v="2" />
++    </configuration>
++    <recent_temporary>
++      <list>
++        <item itemvalue="Python.modulator" />
++        <item itemvalue="Python.phantom_generator" />
++      </list>
++    </recent_temporary>
+   </component>
+   <component name="SharedIndexes">
+     <attachedChunks>
+       <set>
+-        <option value="bundled-python-sdk-495700d161d3-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.22562.220" />
++        <option value="bundled-python-sdk-4f4e415b4190-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.26053.29" />
+       </set>
+     </attachedChunks>
+   </component>
+@@ -112,14 +178,147 @@
+       <option name="project" value="LOCAL" />
+       <updated>1743889781117</updated>
+     </task>
+-    <option name="localTasksCounter" value="4" />
++    <task id="LOCAL-00004" summary="*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper">
++      <option name="closed" value="true" />
++      <created>1744065680488</created>
++      <option name="number" value="00004" />
++      <option name="presentableId" value="LOCAL-00004" />
++      <option name="project" value="LOCAL" />
++      <updated>1744065680488</updated>
++    </task>
++    <task id="LOCAL-00005" summary="+Modulator.py">
++      <option name="closed" value="true" />
++      <created>1744124505572</created>
++      <option name="number" value="00005" />
++      <option name="presentableId" value="LOCAL-00005" />
++      <option name="project" value="LOCAL" />
++      <updated>1744124505572</updated>
++    </task>
++    <task id="LOCAL-00006" summary="+Modulator.py">
++      <option name="closed" value="true" />
++      <created>1744124521930</created>
++      <option name="number" value="00006" />
++      <option name="presentableId" value="LOCAL-00006" />
++      <option name="project" value="LOCAL" />
++      <updated>1744124521930</updated>
++    </task>
++    <task id="LOCAL-00007" summary="+phantom_generator.py&#10;+New Datasets">
++      <option name="closed" value="true" />
++      <created>1744128228063</created>
++      <option name="number" value="00007" />
++      <option name="presentableId" value="LOCAL-00007" />
++      <option name="project" value="LOCAL" />
++      <updated>1744128228063</updated>
++    </task>
++    <task id="LOCAL-00008" summary="+Trying LBP&#10;*Changes to modulator.py for presentatbility">
++      <option name="closed" value="true" />
++      <created>1744144792853</created>
++      <option name="number" value="00008" />
++      <option name="presentableId" value="LOCAL-00008" />
++      <option name="project" value="LOCAL" />
++      <updated>1744144792853</updated>
++    </task>
++    <task id="LOCAL-00009" summary="+FIRST ECHO PROTOTYPE">
++      <option name="closed" value="true" />
++      <created>1744165137370</created>
++      <option name="number" value="00009" />
++      <option name="presentableId" value="LOCAL-00009" />
++      <option name="project" value="LOCAL" />
++      <updated>1744165137370</updated>
++    </task>
++    <task id="LOCAL-00010" summary="+ comments to LBP and phantom_generator">
++      <option name="closed" value="true" />
++      <created>1744488434330</created>
++      <option name="number" value="00010" />
++      <option name="presentableId" value="LOCAL-00010" />
++      <option name="project" value="LOCAL" />
++      <updated>1744488434331</updated>
++    </task>
++    <task id="LOCAL-00011" summary="- removed data files from Bruce Folder">
++      <option name="closed" value="true" />
++      <created>1744489175330</created>
++      <option name="number" value="00011" />
++      <option name="presentableId" value="LOCAL-00011" />
++      <option name="project" value="LOCAL" />
++      <updated>1744489175330</updated>
++    </task>
++    <task id="LOCAL-00012" summary="- removed data files from Bruce Folder">
++      <option name="closed" value="true" />
++      <created>1744489559704</created>
++      <option name="number" value="00012" />
++      <option name="presentableId" value="LOCAL-00012" />
++      <option name="project" value="LOCAL" />
++      <updated>1744489559704</updated>
++    </task>
++    <option name="localTasksCounter" value="13" />
+     <servers />
++  </component>
++  <component name="Vcs.Log.Tabs.Properties">
++    <option name="RECENT_FILTERS">
++      <map>
++        <entry key="Branch">
++          <value>
++            <list>
++              <RecentGroup>
++                <option name="FILTER_VALUES">
++                  <option value="origin/master" />
++                </option>
++              </RecentGroup>
++              <RecentGroup>
++                <option name="FILTER_VALUES">
++                  <option value="master" />
++                </option>
++              </RecentGroup>
++            </list>
++          </value>
++        </entry>
++        <entry key="User">
++          <value>
++            <list>
++              <RecentGroup>
++                <option name="FILTER_VALUES">
++                  <option value="*" />
++                </option>
++              </RecentGroup>
++            </list>
++          </value>
++        </entry>
++      </map>
++    </option>
++    <option name="TAB_STATES">
++      <map>
++        <entry key="MAIN">
++          <value>
++            <State>
++              <option name="FILTERS">
++                <map>
++                  <entry key="branch">
++                    <value>
++                      <list>
++                        <option value="origin/master" />
++                      </list>
++                    </value>
++                  </entry>
++                </map>
++              </option>
++            </State>
++          </value>
++        </entry>
++      </map>
++    </option>
+   </component>
+   <component name="VcsManagerConfiguration">
+     <MESSAGE value="Creating folders and main test code" />
+     <MESSAGE value="+Python ML tutorial files" />
+     <MESSAGE value="+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder" />
+-    <option name="LAST_COMMIT_MESSAGE" value="+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder" />
++    <MESSAGE value="*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper" />
++    <MESSAGE value="+Modulator.py" />
++    <MESSAGE value="+phantom_generator.py&#10;+New Datasets" />
++    <MESSAGE value="+Trying LBP&#10;*Changes to modulator.py for presentatbility" />
++    <MESSAGE value="+FIRST ECHO PROTOTYPE" />
++    <MESSAGE value="+ comments to LBP and phantom_generator" />
++    <MESSAGE value="- removed data files from Bruce Folder" />
++    <option name="LAST_COMMIT_MESSAGE" value="- removed data files from Bruce Folder" />
+   </component>
+   <component name="XDebuggerManager">
+     <breakpoint-manager>
