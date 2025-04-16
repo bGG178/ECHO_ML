@@ -149,11 +149,11 @@ class UNetGenerator(nn.Module):
             nn.ReLU(inplace=True)
         )  # Output: (base_filters, H/2, W/2)
 
-        # Final layer to get desired output size
+        # Final layer to get 128x128 output size
         self.final = nn.Sequential(
             nn.ConvTranspose2d(base_filters * 2, out_channels, kernel_size=4, stride=2, padding=1),
             nn.Tanh()
-        )  # Output: (out_channels, H, W)
+        )  # Output: (out_channels, 128, 128)
 
     def forward(self, x, capacitance_matrix):
         # Encoder
@@ -187,35 +187,35 @@ class UNetGenerator(nn.Module):
 
 
 # Discriminator conditioned on the capacitance measurement
+
 class Discriminator(nn.Module):
     def __init__(self, condition_shape=(1, 66, 66), in_channels=1):
         super(Discriminator, self).__init__()
 
-        # Fake portion: Conv2D (3x3, stride 1) + MaxPooling2D (stride 2)
-        self.fake_conv = nn.Sequential(
-            nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
+        # Convolutional layer to process input images
+        self.image_conv = nn.Conv2d(in_channels, 128, kernel_size=3, stride=1, padding=1)
 
-        # Real portion: MaxPooling2D (stride 2)
-        self.real_pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        # MaxPooling2D (stride 2) for both real and fake portions
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        # 1x1 convolution to match condition channels to real_features channels
+        self.condition_conv = nn.Conv2d(in_channels, 128, kernel_size=1)  # Updated to accept 1 input channel
 
         # Combined processing layers
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(64 + 64, 128, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(128),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(256, 256, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(512),
             nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(512, 1024, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(1024),
+            nn.LeakyReLU(0.2, inplace=True),
         )
 
         # Fully connected layers
-        dummy_input = torch.zeros(1, 64 + 64, condition_shape[1] // 2, condition_shape[2] // 2)
+        dummy_input = torch.zeros(1, 256, condition_shape[1] // 2, condition_shape[2] // 2)
         flattened_size = self._get_flattened_size(dummy_input)
         self.fc_layers = nn.Sequential(
             nn.Flatten(),
@@ -227,25 +227,41 @@ class Discriminator(nn.Module):
         x = self.conv_layers(x)
         return x.numel()
 
-    def forward(self, image, condition):
-        # Fake portion
-        fake_features = self.fake_conv(condition)
+    def forward(self, real_image, fake_image, condition):
+        # Process real and fake images through the convolutional layer
+        print(f"real_image shape: {real_image.shape}")
+        print(f"fake_image shape: {fake_image.shape}")
+        real_features = self.image_conv(real_image)  # Outputs 128 channels
+        fake_features = self.image_conv(fake_image)
 
-        # Real portion
-        real_features = self.real_pool(image)
+        print(f"real_features shape before MP2D: {real_features.shape}")
+        print(f"fake_features shape before MP2D: {fake_features.shape}")
 
-        # Concatenate fake and real features
-        combined_features = torch.cat([fake_features, real_features], dim=1)
+        # Apply MaxPooling2D
+        real_features = self.pool(real_features)
+        fake_features = self.pool(fake_features)
 
-        # Adjust the number of channels to match the expected input of conv_layers
-        if combined_features.size(1) != 128:
-            combined_features = nn.Conv2d(combined_features.size(1), 128, kernel_size=1)(combined_features)
+        print(f"real_features shape: {real_features.shape}")
+        print(f"fake_features shape: {fake_features.shape}")
 
-        # Process through the rest of the discriminator
-        x = self.conv_layers(combined_features)
-        x = x.view(x.size(0), -1)  # Flatten
-        validity = self.fc_layers(x)
-        return validity
+        # Resize the condition tensor to match the spatial dimensions of real_features
+        condition_resized = F.interpolate(condition, size=real_features.shape[2:], mode='bilinear', align_corners=False)
+        print(f"condition shape before conv: {condition.shape}")
+        condition_resized = self.condition_conv(condition_resized)  # Ensure this outputs 128 channels
+
+        print(f"condition_resized shape: {condition_resized.shape}")
+
+        # Concatenate capacitance matrix with real and fake features
+        real_combined = torch.cat([real_features, condition_resized], dim=1)
+        fake_combined = torch.cat([fake_features, condition_resized], dim=1)
+        print(f"real_combined shape: {real_combined.shape}")
+        print(f"fake_combined shape: {fake_combined.shape}")
+
+        # Process through the discriminator
+        real_validity = self.fc_layers(self.conv_layers(real_combined))
+        fake_validity = self.fc_layers(self.conv_layers(fake_combined))
+
+        return real_validity, fake_validity
 
 
 # Training loop for CGAN-ECT using U-Net generator
@@ -286,7 +302,7 @@ def train_cgan_ect(generator, discriminator, dataloader, num_epochs=3, device='c
             # Resize generated images to match the discriminator's expected input size
             gen_imgs = F.interpolate(gen_imgs, size=(64, 64), mode='bilinear', align_corners=False)
             # Loss measures generator's ability to fool the discriminator
-            g_loss = criterion(discriminator(gen_imgs, cond_input), valid)
+            g_loss = criterion(discriminator(gen_imgs, gen_imgs, cond_input)[1], valid)
             g_loss.backward()
             opt_G.step()
 
@@ -299,9 +315,10 @@ def train_cgan_ect(generator, discriminator, dataloader, num_epochs=3, device='c
             # ---------------------
             opt_D.zero_grad()
             # Loss for real images
-            real_loss = criterion(discriminator(real_imgs, cond_input), valid)
+            real_loss = criterion(discriminator(real_image=real_imgs, fake_image=real_imgs, condition=cond_input)[0],
+                                  valid)
             # Loss for fake images
-            fake_loss = criterion(discriminator(gen_imgs.detach(), cond_input), fake)
+            fake_loss = criterion(discriminator(real_imgs, gen_imgs.detach(),cond_input), fake)
             d_loss = (real_loss + fake_loss) / 2
             d_loss.backward()
             opt_D.step()
@@ -326,6 +343,7 @@ if __name__ == "__main__":
 
 
     # Create U-Net generator and discriminator instances
+
     generator = UNetGenerator(in_channels=1, out_channels=1, base_filters=64)
     discriminator = Discriminator(condition_shape=(1, 66, 66), in_channels=1)
 
@@ -358,7 +376,7 @@ if __name__ == "__main__":
 
     train_dataset = TensorDataset(train_real_images, train_capacitance)
     train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True
     )
 
     # Prepare the testing dataset

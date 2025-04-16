@@ -4,10 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+ECHO_CGAN v0.0.2">
-      <change afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper2.py" afterDir="false" />
+    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+ECHO_CGAN v0.0.3">
+      <change afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper3.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Grant Files/Speed_improve.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_paper2.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper2.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,6 +57,8 @@
   &quot;keyToString&quot;: {
     &quot;Python.CGAN_gpt.executor&quot;: &quot;Run&quot;,
     &quot;Python.CGAN_paper.executor&quot;: &quot;Run&quot;,
+    &quot;Python.CGAN_paper2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.CGAN_paper3.executor&quot;: &quot;Run&quot;,
     &quot;Python.LBP.executor&quot;: &quot;Run&quot;,
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
     &quot;Python.modulator.executor&quot;: &quot;Run&quot;,
@@ -72,14 +76,14 @@
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
-      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
+      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\ECHO_CGAN_UNET" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\DATA" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\CGAN Github Lonatang" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.modulator">
+  <component name="RunManager">
     <configuration name="modulator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="ECHO_ML" />
       <option name="ENV_FILES" value="" />
@@ -126,8 +130,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.modulator" />
         <item itemvalue="Python.phantom_generator" />
+        <item itemvalue="Python.modulator" />
       </list>
     </recent_temporary>
   </component>
@@ -227,7 +231,15 @@
       <option name="project" value="LOCAL" />
       <updated>1744227563402</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="+ECHO_CGAN v0.0.3">
+      <option name="closed" value="true" />
+      <created>1744728754060</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1744728754060</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -283,7 +295,8 @@
     <MESSAGE value="+Trying LBP&#10;*Changes to modulator.py for presentatbility" />
     <MESSAGE value="+FIRST ECHO PROTOTYPE" />
     <MESSAGE value="+ECHO_CGAN v0.0.2" />
-    <option name="LAST_COMMIT_MESSAGE" value="+ECHO_CGAN v0.0.2" />
+    <MESSAGE value="+ECHO_CGAN v0.0.3" />
+    <option name="LAST_COMMIT_MESSAGE" value="+ECHO_CGAN v0.0.3" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -292,6 +305,16 @@
           <url>file://$PROJECT_DIR$/.venv/Lib/site-packages/torch/utils/data/dataset.py</url>
           <line>1</line>
           <option name="timeStamp" value="1" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/Grant Files/CGAN_paper.py</url>
+          <line>347</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/Grant Files/CGAN_paper.py</url>
+          <line>346</line>
+          <option name="timeStamp" value="5" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
