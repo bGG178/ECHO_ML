@@ -28,19 +28,22 @@ class Generator(nn.Module): # U-Net Generator
         )
 
         self.dec2 = nn.Sequential(
-            nn.ConvTranspose2d(base_filters * 4, base_filters * 2, kernel_size=4, stride=2, padding=1),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+            nn.Conv2d(base_filters * 4, base_filters * 2, kernel_size=3, padding=1),
             nn.BatchNorm2d(base_filters * 2),
             nn.ReLU(inplace=True)
         )
 
         self.dec1 = nn.Sequential(
-            nn.ConvTranspose2d(base_filters * 4, base_filters, kernel_size=4, stride=2, padding=1),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+            nn.Conv2d(base_filters * 2 + base_filters*2, base_filters, kernel_size=3, padding=1),
             nn.BatchNorm2d(base_filters),
             nn.ReLU(inplace=True)
         )
 
         self.final = nn.Sequential(
-            nn.ConvTranspose2d(base_filters * 2, 1, kernel_size=4, stride=2, padding=1),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+            nn.Conv2d(base_filters + base_filters, 1, kernel_size=3, padding=1),
             nn.Tanh()
         )
 
@@ -130,7 +133,7 @@ def generate_sample(batch_size=16, image_size=32):
     for _ in range(batch_size):
         img = generate_complex_pattern(image_size)
         cap_vector = np.sum(img, axis=1) / image_size
-        cap_vector += np.random.normal(0, 0.01, size=cap_vector.shape)  # Add noise
+        #cap_vector += np.random.normal(0, 0.01, size=cap_vector.shape)  # Add noise
         mass = np.sum(img)
         images.append(img)
         caps.append(cap_vector)
@@ -147,20 +150,24 @@ def generate_sample(batch_size=16, image_size=32):
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-image_size = 128
+image_size = 32
 
 G = Generator(image_size=image_size).to(device)
 D = Discriminator(image_size=image_size).to(device)
 M = MassEstimator(image_size=image_size).to(device)
 
-optimizer_G = optim.Adam(G.parameters(), lr=2e-4)
-optimizer_D = optim.Adam(D.parameters(), lr=2e-4)
-optimizer_M = optim.Adam(M.parameters(), lr=1e-4)
+optimizer_G = optim.Adam(G.parameters(), lr=0.0001)
+optimizer_D = optim.Adam(D.parameters(), lr=0.0001)
+optimizer_M = optim.Adam(M.parameters(), lr=0.0001)
+
+#Schedulers
+scheduler_G = optim.lr_scheduler.StepLR(optimizer_G, step_size=100, gamma=0.9)
+scheduler_D = optim.lr_scheduler.StepLR(optimizer_D, step_size=100, gamma=0.9)
 
 loss_GAN = nn.BCELoss()
 loss_MSE = nn.MSELoss()
 
-epochs = 500
+epochs = 10000
 
 Dlossarr =[]
 Glossarr =[]
@@ -199,12 +206,16 @@ for epoch in trange(epochs+1):
     m_loss.backward()
     optimizer_M.step()
 
-    # Visualization
-    if epoch % 100 == 0:
-        print(f"[{epoch}] D_loss: {d_loss.item():.4f}, G_loss: {g_loss.item():.4f}, Mass_MSE: {m_loss.item():.4f}")
+
+
+    if epoch % 20 == 0:
         Dlossarr.append(d_loss.item())
         Glossarr.append(g_loss.item())
         MSEarr.append(m_loss.item())
+
+    # Visualization
+    if epoch % 100 == 0:
+        print(f"[{epoch}] D_loss: {d_loss.item():.4f}, G_loss: {g_loss.item():.4f}, Mass_MSE: {m_loss.item():.4f}")
         with torch.no_grad():
             fig, axs = plt.subplots(2, 4, figsize=(10, 5))
             for i in range(4):
@@ -215,11 +226,30 @@ for epoch in trange(epochs+1):
                 axs[1, i].set_title("Fake")
                 axs[1, i].axis("off")
             plt.tight_layout()
-            plt.show()
+            #plt.show()
 
+    #scheduler step
+    scheduler_G.step()
+    scheduler_D.step()
+
+plt.figure(figsize=(10, 5))
+
+# Plot Glossarr and Dlossarr on the first subplot
+plt.subplot(1, 2, 1)
 plt.plot(Dlossarr, label='Discriminator Loss')
 plt.plot(Glossarr, label='Generator Loss')
-plt.plot(MSEarr, label='Mass Estimator Loss')
-print(Dlossarr)
-print(Glossarr)
-print(MSEarr)
+plt.xlabel('Epochs (every 20)')
+plt.ylabel('Loss')
+plt.legend()
+plt.title('Generator and Discriminator Loss')
+
+# Plot MSEarr on the second subplot
+plt.subplot(1, 2, 2)
+plt.plot(MSEarr, label='Mass Estimator Loss', color='orange')
+plt.xlabel('Epochs (every 20)')
+plt.ylabel('Loss')
+plt.legend()
+plt.title('Mass Estimator Loss')
+
+plt.tight_layout()
+plt.show()

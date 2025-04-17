@@ -348,7 +348,7 @@ if __name__ == "__main__":
     discriminator = Discriminator(condition_shape=(1, 66, 66), in_channels=1)
 
     # Load the combined dataset
-    datafile = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\combined_data.npy"
+    datafile = r"C:\Users\bower\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\combined_data.npy"
     combined_data = np.load(datafile, allow_pickle=True)
 
     # Split the dataset into training (90%) and testing (10%)
