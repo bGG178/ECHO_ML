@@ -149,11 +149,11 @@ class UNetGenerator(nn.Module):
             nn.ReLU(inplace=True)
         )  # Output: (base_filters, H/2, W/2)
 
-        # Final layer to get 128x128 output size
+        # Final layer to get desired output size
         self.final = nn.Sequential(
             nn.ConvTranspose2d(base_filters * 2, out_channels, kernel_size=4, stride=2, padding=1),
             nn.Tanh()
-        )  # Output: (out_channels, 128, 128)
+        )  # Output: (out_channels, H, W)
 
     def forward(self, x, capacitance_matrix):
         # Encoder
@@ -170,13 +170,9 @@ class UNetGenerator(nn.Module):
         # Final output
         generated_image = self.final(d1)
 
-        # Resize capacitance_matrix to match generated_image
-        capacitance_matrix_resized = F.interpolate(capacitance_matrix, size=generated_image.shape[2:], mode='bilinear',
-                                                   align_corners=False)
+        # Ensure the output has 1 channel
+        return generated_image[:, :1, :, :]  # Select only the first channel
 
-        # Concatenate with the resized capacitance matrix
-        concatenated_output = torch.cat([generated_image, capacitance_matrix_resized], dim=1)
-        return concatenated_output
 
     def _crop_to_match(self, source, target):
         """
@@ -187,81 +183,75 @@ class UNetGenerator(nn.Module):
 
 
 # Discriminator conditioned on the capacitance measurement
-
 class Discriminator(nn.Module):
-    def __init__(self, condition_shape=(1, 66, 66), in_channels=1):
+    def __init__(self, condition_shape=(1, 66, 66)):
         super(Discriminator, self).__init__()
 
-        # Convolutional layer to process input images
-        self.image_conv = nn.Conv2d(in_channels, 128, kernel_size=3, stride=1, padding=1)
+        # 1) Image stream: only processes the phantom (1‑channel)
+        self.image_conv = nn.Conv2d(1, 128, kernel_size=3, stride=1, padding=1)
+        self.pool       = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        # MaxPooling2D (stride 2) for both real and fake portions
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        # 2) Condition stream: only processes the capacitance (1‑channel)
+        self.condition_conv = nn.Conv2d(1, 128, kernel_size=1)
 
-        # 1x1 convolution to match condition channels to real_features channels
-        self.condition_conv = nn.Conv2d(in_channels, 128, kernel_size=1)  # Updated to accept 1 input channel
-
-        # Combined processing layers
-        self.conv_layers = nn.Sequential(
+        # 3) Joint conv stack: takes 256 channels (128+128)
+        self.joint_conv = nn.Sequential(
             nn.Conv2d(256, 256, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.2, inplace=True),
+
             nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(512),
             nn.LeakyReLU(0.2, inplace=True),
+
             nn.Conv2d(512, 1024, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(1024),
             nn.LeakyReLU(0.2, inplace=True),
         )
 
-        # Fully connected layers
-        dummy_input = torch.zeros(1, 256, condition_shape[1] // 2, condition_shape[2] // 2)
-        flattened_size = self._get_flattened_size(dummy_input)
-        self.fc_layers = nn.Sequential(
+        # Compute flattened size dynamically
+        dummy = torch.zeros(1, 256,
+                            condition_shape[1] // 2,  # after one pool
+                            condition_shape[2] // 2)
+        flat_size = self._get_flattened_size(dummy)
+
+        # 4) Final classifier
+        self.fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(flattened_size, 1),
+            nn.Linear(flat_size, 1),
             nn.Sigmoid()
         )
 
     def _get_flattened_size(self, x):
-        x = self.conv_layers(x)
+        x = self.joint_conv(x)
         return x.numel()
 
     def forward(self, real_image, fake_image, condition):
-        # Process real and fake images through the convolutional layer
-        print(f"real_image shape: {real_image.shape}")
-        print(f"fake_image shape: {fake_image.shape}")
-        real_features = self.image_conv(real_image)  # Outputs 128 channels
-        fake_features = self.image_conv(fake_image)
+        # --- image path ---
+        # real_image, fake_image: [B,1,H,W]
+        r_feat = self.image_conv(real_image)
+        r_feat = self.pool(r_feat)
 
-        print(f"real_features shape before MP2D: {real_features.shape}")
-        print(f"fake_features shape before MP2D: {fake_features.shape}")
+        f_feat = self.image_conv(fake_image)
+        f_feat = self.pool(f_feat)
 
-        # Apply MaxPooling2D
-        real_features = self.pool(real_features)
-        fake_features = self.pool(fake_features)
+        # --- condition path ---
+        # condition: [B,1,H,W]
+        c_feat = F.interpolate(condition, size=r_feat.shape[2:],
+                               mode='bilinear', align_corners=False)
+        c_feat = self.condition_conv(c_feat)
+        # now c_feat is [B,128,H/2,W/2]
 
-        print(f"real_features shape: {real_features.shape}")
-        print(f"fake_features shape: {fake_features.shape}")
+        # --- concatenate & joint conv ---
+        real_cat = torch.cat([r_feat, c_feat], dim=1)  # [B,256,...]
+        fake_cat = torch.cat([f_feat, c_feat], dim=1)
 
-        # Resize the condition tensor to match the spatial dimensions of real_features
-        condition_resized = F.interpolate(condition, size=real_features.shape[2:], mode='bilinear', align_corners=False)
-        print(f"condition shape before conv: {condition.shape}")
-        condition_resized = self.condition_conv(condition_resized)  # Ensure this outputs 128 channels
+        real_out = self.fc(self.joint_conv(real_cat))
+        fake_out = self.fc(self.joint_conv(fake_cat))
 
-        print(f"condition_resized shape: {condition_resized.shape}")
+        return real_out, fake_out
 
-        # Concatenate capacitance matrix with real and fake features
-        real_combined = torch.cat([real_features, condition_resized], dim=1)
-        fake_combined = torch.cat([fake_features, condition_resized], dim=1)
-        print(f"real_combined shape: {real_combined.shape}")
-        print(f"fake_combined shape: {fake_combined.shape}")
 
-        # Process through the discriminator
-        real_validity = self.fc_layers(self.conv_layers(real_combined))
-        fake_validity = self.fc_layers(self.conv_layers(fake_combined))
-
-        return real_validity, fake_validity
 
 
 # Training loop for CGAN-ECT using U-Net generator
@@ -270,7 +260,7 @@ def train_cgan_ect(generator, discriminator, dataloader, num_epochs=3, device='c
     dislossarr = []
 
     # Optimizers for both networks
-    opt_G = optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.999))
+    opt_G = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
     opt_D = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
     criterion = nn.BCELoss()  # Binary cross-entropy loss
@@ -281,44 +271,33 @@ def train_cgan_ect(generator, discriminator, dataloader, num_epochs=3, device='c
     for epoch in range(num_epochs):
         for i, (real_imgs, cond_input) in enumerate(dataloader):
             batch_size = real_imgs.size(0)
-            real_imgs = real_imgs.to(device)
-            cond_input = cond_input.to(device)
+            real_imgs = real_imgs.to(device)  # <- This is the phantom
+            cond_input = cond_input.to(device)  # <- This is the capacitance measurement
 
-            # Resize real images and condition input to a consistent size
+            # Resize both to same size
             real_imgs = F.interpolate(real_imgs, size=(64, 64), mode='bilinear', align_corners=False)
             cond_input = F.interpolate(cond_input, size=(64, 64), mode='bilinear', align_corners=False)
 
-            # Adversarial ground truths
             valid = torch.full((batch_size, 1), 0.9, device=device)
-            # Use 0.9 instead of 1.0
             fake = torch.zeros(batch_size, 1, device=device)
 
-            # ---------------------
-            #  Train Generator (U-Net)
-            # ---------------------
+            # --------------------
+            #  Train Generator
+            # --------------------
             opt_G.zero_grad()
-            # Generator produces an image given the condition (raw capacitance) measurement.
-            gen_imgs = generator(real_imgs,cond_input)
-            # Resize generated images to match the discriminator's expected input size
+            gen_imgs = generator(cond_input, cond_input)  # generator(input_image, capacitance)
             gen_imgs = F.interpolate(gen_imgs, size=(64, 64), mode='bilinear', align_corners=False)
-            # Loss measures generator's ability to fool the discriminator
+
             g_loss = criterion(discriminator(gen_imgs, gen_imgs, cond_input)[1], valid)
             g_loss.backward()
             opt_G.step()
-
-            # MORE RESEARCH Add noise to real and generated images
-            #real_imgs += torch.randn_like(real_imgs) * 0.05  # Add noise to real images
-            #gen_imgs += torch.randn_like(gen_imgs) * 0.05  # Add noise to generated images
 
             # ---------------------
             #  Train Discriminator
             # ---------------------
             opt_D.zero_grad()
-            # Loss for real images
-            real_loss = criterion(discriminator(real_image=real_imgs, fake_image=real_imgs, condition=cond_input)[0],
-                                  valid)
-            # Loss for fake images
-            fake_loss = criterion(discriminator(real_imgs, gen_imgs.detach(),cond_input), fake)
+            real_loss = criterion(discriminator(real_imgs, real_imgs, cond_input)[0], valid)
+            fake_loss = criterion(discriminator(real_imgs, gen_imgs.detach(), cond_input)[1], fake)
             d_loss = (real_loss + fake_loss) / 2
             d_loss.backward()
             opt_D.step()
@@ -343,12 +322,11 @@ if __name__ == "__main__":
 
 
     # Create U-Net generator and discriminator instances
-
     generator = UNetGenerator(in_channels=1, out_channels=1, base_filters=64)
-    discriminator = Discriminator(condition_shape=(1, 66, 66), in_channels=1)
+    discriminator = Discriminator(condition_shape=(1, 66, 66))
 
     # Load the combined dataset
-    datafile = r"C:\Users\bower\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\combined_data.npy"
+    datafile = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\combined_data.npy"
     combined_data = np.load(datafile, allow_pickle=True)
 
     # Split the dataset into training (90%) and testing (10%)
@@ -376,7 +354,7 @@ if __name__ == "__main__":
 
     train_dataset = TensorDataset(train_real_images, train_capacitance)
     train_dataloader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True
     )
 
     # Prepare the testing dataset
