@@ -94,7 +94,7 @@ class PhantomGenerator:
                 # shift coordinates relative to the center of the image
                 arc[0] = arc[0]+xc
                 arc[1] = arc[1]+yc
-                # collect color data
+                ## collect color data
                 for iii in len(arc[0]):
                     if np.sqrt(((arc[0][iii] - xc) ^ 2 + (arc[2][iii] - yc) ^ 2) < ((r - TK / 2) - 1)):
                         xim = round(arc[0][iii], 1)
