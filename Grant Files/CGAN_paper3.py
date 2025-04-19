@@ -6,6 +6,51 @@ import matplotlib.pyplot as plt
 from tqdm import trange
 import random
 
+def cutoff(tensr, x, tensorreturn = True):
+    """
+    Applies a cutoff to the input array.
+    Values above x are set to 1, and values below or equal to x are set to 0.
+
+    Parameters:
+        array (numpy.ndarray): Input array.
+        x (float): Cutoff value.
+
+    Returns:
+        numpy.ndarray: Array with values set to 1 or 0 based on the cutoff.
+    """
+    tensr = torch.tensor(tensr) if not isinstance(tensr, torch.Tensor) else tensr
+    result = (tensr > x).float()
+    return result if tensorreturn else result.numpy()
+
+def adjust_learning_rate(optimizer, target_loss, current_loss, factor=0.1, min_lr=1e-6, max_lr=1e-2):
+    """
+    Adjusts the learning rate of the optimizer based on the current loss and target loss.
+    """
+    for param_group in optimizer.param_groups:
+        current_lr = param_group['lr']
+        if current_loss > target_loss:
+            new_lr = min(current_lr * (1 + factor), max_lr)  # Increase LR
+        else:
+            new_lr = max(current_lr * (1 - factor), min_lr)  # Decrease LR
+        param_group['lr'] = new_lr
+
+def imagecorrelation(realarr,fakearr):
+    """
+    Accepts the real and fake image, overlays them, and calculates the correlation by measuring the difference in pixels
+    Returns a percentage value of correlation
+    """
+    total=0
+
+    realarr = realarr.flatten()
+    fakearr = fakearr.flatten()
+    diff = np.abs(realarr - fakearr)
+    maximumtotal = len(realarr)
+
+    for value in diff:
+        total += value
+    correlation = 1- (total / maximumtotal) # 1- because if it is 100% accurate, then each value is 0 or close to. So total ends up being very small.
+    return correlation * 100 # Return to be displayed as a %
+
 class Generator(nn.Module): # U-Net Generator
     def __init__(self, image_size=128, base_filters=64):
         super().__init__()
@@ -95,6 +140,12 @@ class MassEstimator(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+def MassCalculator(img):
+    """
+    Calculates the mass of the image by summing all pixel values.
+    """
+    return torch.sum(img)
+
 
 # --- Complex Flow Patterns ---
 def generate_complex_pattern(image_size):
@@ -150,7 +201,9 @@ def generate_sample(batch_size=16, image_size=32):
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-image_size = 32
+image_size = 32 #WORKS WELL FOR 32x32, 64x64 and 128x128 need work!
+target_loss = 0.45
+epochs = 4000
 
 G = Generator(image_size=image_size).to(device)
 D = Discriminator(image_size=image_size).to(device)
@@ -167,11 +220,11 @@ scheduler_D = optim.lr_scheduler.StepLR(optimizer_D, step_size=100, gamma=0.9)
 loss_GAN = nn.BCELoss()
 loss_MSE = nn.MSELoss()
 
-epochs = 10000
 
 Dlossarr =[]
 Glossarr =[]
 MSEarr =[]
+ICarr = []
 
 for epoch in trange(epochs+1):
     caps, real_imgs, masses = generate_sample(batch_size=16, image_size=image_size)
@@ -200,31 +253,52 @@ for epoch in trange(epochs+1):
     optimizer_D.step()
 
     # Mass estimator step
-    optimizer_M.zero_grad()
-    mass_pred = M(fake_imgs.detach())
-    m_loss = loss_MSE(mass_pred, masses)
-    m_loss.backward()
-    optimizer_M.step()
+    #optimizer_M.zero_grad()
+    #mass_pred = M(fake_imgs.detach())
+    #m_loss = loss_MSE(mass_pred, masses)
+    #m_loss.backward()
+    #optimizer_M.step()
+
+    # Mass loss
+    fakeimgmass = MassCalculator(fake_imgs)
+    realimgmass = MassCalculator(real_imgs)
+    mloss = (abs(float(fakeimgmass) - float(realimgmass)) / float(realimgmass)) * 100
+    with torch.no_grad():
+        ic = imagecorrelation(cutoff(real_imgs[0].cpu().numpy(),0.5,tensorreturn=False), cutoff(fake_imgs[0].cpu().numpy(),0.5,tensorreturn=False))
+
+    # Adjust learning rates
+    adjust_learning_rate(optimizer_G, target_loss, g_loss)
+    adjust_learning_rate(optimizer_D, target_loss, d_loss)
 
 
 
     if epoch % 20 == 0:
         Dlossarr.append(d_loss.item())
         Glossarr.append(g_loss.item())
-        MSEarr.append(m_loss.item())
+        MSEarr.append(mloss)
+        with torch.no_grad():
+            ICarr.append(imagecorrelation(real_imgs[0].cpu().numpy(), fake_imgs[0].cpu().numpy()))
 
     # Visualization
-    if epoch % 100 == 0:
-        print(f"[{epoch}] D_loss: {d_loss.item():.4f}, G_loss: {g_loss.item():.4f}, Mass_MSE: {m_loss.item():.4f}")
+    if epoch % 200 == 0:
+
         with torch.no_grad():
+            print(
+                f"[{epoch}] D_loss: {d_loss.item():.4f}, G_loss: {g_loss.item():.4f}, Mass Error: {mloss:.2f}%, IC%: {ic:.2f}%")
             fig, axs = plt.subplots(2, 4, figsize=(10, 5))
             for i in range(4):
-                axs[0, i].imshow(real_imgs[i, 0].cpu(), cmap="viridis")
+                axs[0, i].imshow(cutoff(real_imgs[i, 0].cpu(),0.5), cmap="viridis")
                 axs[0, i].set_title("Real")
                 axs[0, i].axis("off")
-                axs[1, i].imshow(fake_imgs[i, 0].cpu(), cmap="viridis")
-                axs[1, i].set_title("Fake")
+                axs[1, i].imshow(cutoff(fake_imgs[i, 0].cpu(),0.5), cmap="viridis")
+                ic_value = imagecorrelation(
+                    cutoff(real_imgs[i, 0].cpu().numpy(), 0.5, tensorreturn=False),
+                    cutoff(fake_imgs[i, 0].cpu().numpy(), 0.5, tensorreturn=False)
+                )
+                mlossgraph = (abs(float(MassCalculator(fake_imgs[i,0])) - float(MassCalculator(real_imgs[i,0]))) / float(MassCalculator(real_imgs[i,0]))) * 100
+                axs[1, i].set_title(f"IC: {ic_value:.2f}%, ME: {mlossgraph:.2f}%", fontsize=6)
                 axs[1, i].axis("off")
+
             plt.tight_layout()
             #plt.show()
 
@@ -232,10 +306,10 @@ for epoch in trange(epochs+1):
     scheduler_G.step()
     scheduler_D.step()
 
-plt.figure(figsize=(10, 5))
+plt.figure(figsize=(15, 5))
 
 # Plot Glossarr and Dlossarr on the first subplot
-plt.subplot(1, 2, 1)
+plt.subplot(1, 3, 1)
 plt.plot(Dlossarr, label='Discriminator Loss')
 plt.plot(Glossarr, label='Generator Loss')
 plt.xlabel('Epochs (every 20)')
@@ -244,12 +318,20 @@ plt.legend()
 plt.title('Generator and Discriminator Loss')
 
 # Plot MSEarr on the second subplot
-plt.subplot(1, 2, 2)
-plt.plot(MSEarr, label='Mass Estimator Loss', color='orange')
+plt.subplot(1, 3, 2)
+plt.plot(MSEarr, label='Mass Error', color='orange')
 plt.xlabel('Epochs (every 20)')
-plt.ylabel('Loss')
+plt.ylabel('% Error')
 plt.legend()
-plt.title('Mass Estimator Loss')
+plt.title('Mass Error')
+
+# Plot MSEarr on the second subplot
+plt.subplot(1, 3, 3)
+plt.plot(ICarr, label='Image Correlation', color='blue')
+plt.xlabel('Epochs (every 20)')
+plt.ylabel('% Correlation')
+plt.legend()
+plt.title('Image Correlation')
 
 plt.tight_layout()
 plt.show()
