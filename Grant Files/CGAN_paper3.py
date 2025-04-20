@@ -5,18 +5,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import trange
 import random
+from torch.utils.data import DataLoader, TensorDataset
+import os
+from Construction.modulator import build_circulant_matrix, matrix_to_image
+from Construction.phantom_generator import PhantomGenerator
+import json
+import torch.nn.functional as F
+
+
+
 
 def cutoff(tensr, x, tensorreturn = True):
     """
     Applies a cutoff to the input array.
     Values above x are set to 1, and values below or equal to x are set to 0.
 
-    Parameters:
-        array (numpy.ndarray): Input array.
-        x (float): Cutoff value.
+    tensorreturn because sometimes it whines at you if you don't return a tensor
 
-    Returns:
-        numpy.ndarray: Array with values set to 1 or 0 based on the cutoff.
     """
     tensr = torch.tensor(tensr) if not isinstance(tensr, torch.Tensor) else tensr
     result = (tensr > x).float()
@@ -119,26 +124,12 @@ class Discriminator(nn.Module):
             nn.Linear(128 * (image_size//4) * (image_size//4), 1),
             nn.Sigmoid()
         )
-    def forward(self, cap_img, recon_img):
-        x = torch.cat([cap_img, recon_img], dim=1)
+
+    def forward(self, real_imgs, fake_imgs):
+        # Concatenate real and fake images along the channel dimension
+        x = torch.cat([real_imgs, fake_imgs], dim=1)
         return self.model(x)
 
-class MassEstimator(nn.Module):
-    def __init__(self, image_size=128):
-        super().__init__()
-        self.model = nn.Sequential(
-            nn.Conv2d(1, 16, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Flatten(),
-            nn.Linear(32 * (image_size//4) * (image_size//4), 1)
-        )
-
-    def forward(self, x):
-        return self.model(x)
 
 def MassCalculator(img):
     """
@@ -197,100 +188,247 @@ def generate_sample(batch_size=16, image_size=32):
         torch.tensor(masses, dtype=torch.float32).view(-1, 1)
     )
 
+if __name__ == "__main__":
+
+    batch_size = 16
+    image_size = 64 #WORKS WELL FOR 32x32, 64x64 and 128x128 need work!
+    target_loss = 0.45
+    epochs = 150
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    datafile = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\fiftyk_64.json"
+    if not os.path.exists(datafile):
+        raise FileNotFoundError(f"File not found: {datafile}")
+
+    # Load the JSON file
+    with open(datafile, 'r') as f:
+        combined_data = json.load(f)
+
+    # Convert lists back to `numpy` arrays
+    for data in combined_data:
+        data['measurements'] = np.array(data['measurements'])
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Split the dataset into training (80%) and testing (20%)
+    train_size = int(0.8 * len(combined_data))
+    train_data = combined_data[:train_size]
+    test_data = combined_data[train_size:]
 
-image_size = 32 #WORKS WELL FOR 32x32, 64x64 and 128x128 need work!
-target_loss = 0.45
-epochs = 4000
-
-G = Generator(image_size=image_size).to(device)
-D = Discriminator(image_size=image_size).to(device)
-M = MassEstimator(image_size=image_size).to(device)
-
-optimizer_G = optim.Adam(G.parameters(), lr=0.0001)
-optimizer_D = optim.Adam(D.parameters(), lr=0.0001)
-optimizer_M = optim.Adam(M.parameters(), lr=0.0001)
-
-#Schedulers
-scheduler_G = optim.lr_scheduler.StepLR(optimizer_G, step_size=100, gamma=0.9)
-scheduler_D = optim.lr_scheduler.StepLR(optimizer_D, step_size=100, gamma=0.9)
-
-loss_GAN = nn.BCELoss()
-loss_MSE = nn.MSELoss()
+    # Prepare the training dataset
+    phantom_generator = PhantomGenerator(12, 1, image_size)
 
 
-Dlossarr =[]
-Glossarr =[]
-MSEarr =[]
-ICarr = []
+    #TRAINING SET
+    train_real_images = torch.tensor(
+        np.array([phantom_generator.generate_phantom(data['objects']) for data in train_data]),
+        dtype=torch.float32
+    ).unsqueeze(1)
+    train_real_images = (train_real_images - 0.5) * 2  # Normalize to [-1, 1]
 
-for epoch in trange(epochs+1):
-    caps, real_imgs, masses = generate_sample(batch_size=16, image_size=image_size)
-    caps, real_imgs, masses = caps.to(device), real_imgs.to(device), masses.to(device)
+    train_capacitance = torch.tensor(
+        np.array([build_circulant_matrix(data['measurements']) for data in train_data]),
+        dtype=torch.float32
+    ).unsqueeze(1)
+    train_capacitance = (train_capacitance - 0.5) * 2  # Normalize to [-1, 1]
 
-    caps_flat = caps.view(caps.size(0), -1)
-    valid = torch.ones((caps.size(0), 1), device=device)
-    fake = torch.zeros((caps.size(0), 1), device=device)
+    train_dataset = TensorDataset(train_real_images, train_capacitance)
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True
+    )
 
-    # Generator step
-    for _ in range(3):
-        optimizer_G.zero_grad()
-        caps_reshaped = caps.view(-1, 1, image_size, 1).expand(-1, 1, image_size, image_size)
-        fake_imgs = G(caps_reshaped)
-        cap_imgs = caps.view(caps.size(0), 1, image_size, 1).expand(-1, 1, image_size, image_size)
-        g_loss = loss_GAN(D(cap_imgs, fake_imgs), valid)
-        g_loss.backward()
-        optimizer_G.step()
 
-    # Discriminator step
-    optimizer_D.zero_grad()
-    real_loss = loss_GAN(D(cap_imgs, real_imgs), valid)
-    fake_loss = loss_GAN(D(cap_imgs, fake_imgs.detach()), fake)
-    d_loss = (real_loss + fake_loss) / 2
-    d_loss.backward()
-    optimizer_D.step()
+    # TESTING SET
+    test_real_images = torch.tensor(
+        np.array([phantom_generator.generate_phantom(data['objects']) for data in test_data]),
+        dtype=torch.float32
+    ).unsqueeze(1)
+    test_real_images = (test_real_images - 0.5) * 2  # Normalize to [-1, 1]
 
-    # Mass estimator step
-    #optimizer_M.zero_grad()
-    #mass_pred = M(fake_imgs.detach())
-    #m_loss = loss_MSE(mass_pred, masses)
-    #m_loss.backward()
-    #optimizer_M.step()
+    test_capacitance = torch.tensor(
+        np.array([build_circulant_matrix(data['measurements']) for data in test_data]),
+        dtype=torch.float32
+    ).unsqueeze(1)
+    test_capacitance = (test_capacitance - 0.5) * 2  # Normalize to [-1, 1]
 
-    # Mass loss
-    fakeimgmass = MassCalculator(fake_imgs)
-    realimgmass = MassCalculator(real_imgs)
-    mloss = (abs(float(fakeimgmass) - float(realimgmass)) / float(realimgmass)) * 100
+
+    test_dataset = TensorDataset(test_real_images, test_capacitance)
+    test_dataloader = DataLoader(test_dataset, batch_size=8, shuffle=False)
+
+
+
+
+    G = Generator(image_size=image_size).to(device)
+    D = Discriminator(image_size=image_size).to(device)
+
+    optimizer_G = optim.Adam(G.parameters(), lr=0.0001)
+    optimizer_D = optim.Adam(D.parameters(), lr=0.0001)
+
+    #Schedulers
+    scheduler_G = optim.lr_scheduler.StepLR(optimizer_G, step_size=100, gamma=0.9)
+    scheduler_D = optim.lr_scheduler.StepLR(optimizer_D, step_size=100, gamma=0.9)
+
+    loss_GAN = nn.BCELoss()
+    loss_MSE = nn.MSELoss()
+
+
+    Dlossarr =[]
+    Glossarr =[]
+    MSEarr =[]
+    ICarr = []
+
+    # Training loop
+    for epoch in trange(epochs+1):
+        for i, (real_imgs, cond_input) in enumerate(train_dataloader):
+            batch_size = real_imgs.size(0)
+            real_imgs = real_imgs.to(device)
+            caps = cond_input.to(device)
+
+            caps_flat = caps.view(caps.size(0), -1)
+            valid = torch.ones((caps.size(0), 1), device=device)
+            fake = torch.zeros((caps.size(0), 1), device=device)
+            caps_reshaped = F.interpolate(caps, size=(image_size, image_size), mode='bilinear', align_corners=False)
+
+            # Generator step
+            for _ in range(2):
+                optimizer_G.zero_grad()
+                fake_imgs = G(caps_reshaped)
+                g_loss = loss_GAN(D(real_imgs, fake_imgs), valid)
+                g_loss.backward()
+                optimizer_G.step()
+
+            # Discriminator step
+            optimizer_D.zero_grad()
+            # Pass real and fake images to the discriminator
+            real_loss = loss_GAN(D(real_imgs, real_imgs), valid)  # Real images as both inputs
+            fake_loss = loss_GAN(D(real_imgs, fake_imgs.detach()), fake)  # Real and fake images
+            d_loss = (real_loss + fake_loss) / 2
+            d_loss.backward()
+            optimizer_D.step()
+
+            # Mass loss
+            fakeimgmass = MassCalculator(fake_imgs)
+            realimgmass = MassCalculator(real_imgs)
+            mloss = (abs(float(fakeimgmass) - float(realimgmass)) / float(realimgmass)) * 100
+            with torch.no_grad():
+                ic = imagecorrelation(cutoff(real_imgs[0].cpu().numpy(),0.5,tensorreturn=False), cutoff(fake_imgs[0].cpu().numpy(),0.5,tensorreturn=False))
+
+            # Adjust learning rates
+            adjust_learning_rate(optimizer_G, target_loss, g_loss)
+            adjust_learning_rate(optimizer_D, target_loss, d_loss)
+
+
+
+        if epoch % 1 == 0:
+            Dlossarr.append(d_loss.item())
+            Glossarr.append(g_loss.item())
+            MSEarr.append(mloss)
+            with torch.no_grad():
+                ICarr.append(imagecorrelation(real_imgs[0].cpu().numpy(), fake_imgs[0].cpu().numpy()))
+
+        # Visualization
+        if epoch % 10 == 0:
+
+            with torch.no_grad():
+                print(
+                    f"[{epoch}] D_loss: {d_loss.item():.4f}, G_loss: {g_loss.item():.4f}, Mass Error: {mloss:.2f}%, IC%: {ic:.2f}%")
+                fig, axs = plt.subplots(2, 8, figsize=(15, 8))
+                for i in range(8):
+                    axs[0, i].imshow(cutoff(real_imgs[i, 0].cpu(),0.5), cmap="viridis")
+                    axs[0, i].set_title("Real")
+                    axs[0, i].axis("off")
+                    axs[1, i].imshow((fake_imgs[i, 0].cpu()), cmap="viridis")
+                    ic_value = imagecorrelation(
+                        cutoff(real_imgs[i, 0].cpu().numpy(), 0.5, tensorreturn=False),
+                        cutoff(fake_imgs[i, 0].cpu().numpy(), 0.5, tensorreturn=False)
+                    )
+                    mlossgraph = (abs(float(MassCalculator(fake_imgs[i,0])) - float(MassCalculator(real_imgs[i,0]))) / float(MassCalculator(real_imgs[i,0]))) * 100
+                    axs[1, i].set_title(f"IC: {ic_value:.2f}%, ME: {mlossgraph:.2f}%", fontsize=6)
+                    axs[1, i].axis("off")
+
+                plt.tight_layout()
+                #plt.show()
+
+        #scheduler step
+        scheduler_G.step()
+        scheduler_D.step()
+
+    plt.figure(figsize=(15, 5))
+
+    # Plot Glossarr and Dlossarr on the first subplot
+    plt.subplot(1, 3, 1)
+    plt.plot(Dlossarr, label='Discriminator Loss')
+    plt.plot(Glossarr, label='Generator Loss')
+    plt.xlabel('Epochs (every 20)')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.title('Generator and Discriminator Loss')
+
+    # Plot MSEarr on the second subplot
+    plt.subplot(1, 3, 2)
+    plt.plot(MSEarr, label='Mass Error', color='orange')
+    plt.xlabel('Epochs (every 20)')
+    plt.ylabel('% Error')
+    plt.legend()
+    plt.title('Mass Error')
+
+    # Plot MSEarr on the second subplot
+    plt.subplot(1, 3, 3)
+    plt.plot(ICarr, label='Image Correlation', color='blue')
+    plt.xlabel('Epochs (every 20)')
+    plt.ylabel('% Correlation')
+    plt.legend()
+    plt.title('Image Correlation')
+
+    plt.tight_layout()
+    plt.show()
+
+# Testing loop
     with torch.no_grad():
-        ic = imagecorrelation(cutoff(real_imgs[0].cpu().numpy(),0.5,tensorreturn=False), cutoff(fake_imgs[0].cpu().numpy(),0.5,tensorreturn=False))
+        for i, (real_imgs, cond_input) in enumerate(test_dataloader):
+            batch_size = real_imgs.size(0)
+            real_imgs = real_imgs.to(device)
+            caps = cond_input.to(device)
 
-    # Adjust learning rates
-    adjust_learning_rate(optimizer_G, target_loss, g_loss)
-    adjust_learning_rate(optimizer_D, target_loss, d_loss)
+            caps_flat = caps.view(caps.size(0), -1)
+            valid = torch.ones((caps.size(0), 1), device=device)
+            fake = torch.zeros((caps.size(0), 1), device=device)
+            caps_reshaped = F.interpolate(caps, size=(image_size, image_size), mode='bilinear', align_corners=False)
+
+            fake_imgs = G(caps_reshaped)
 
 
 
-    if epoch % 20 == 0:
-        Dlossarr.append(d_loss.item())
-        Glossarr.append(g_loss.item())
-        MSEarr.append(mloss)
-        with torch.no_grad():
-            ICarr.append(imagecorrelation(real_imgs[0].cpu().numpy(), fake_imgs[0].cpu().numpy()))
 
-    # Visualization
-    if epoch % 200 == 0:
+            # Mass loss
+            fakeimgmass = MassCalculator(fake_imgs)
+            realimgmass = MassCalculator(real_imgs)
+            mloss = (abs(float(fakeimgmass) - float(realimgmass)) / float(realimgmass)) * 100
+            with torch.no_grad():
+                ic = imagecorrelation(cutoff(real_imgs[0].cpu().numpy(),0.5,tensorreturn=False), cutoff(fake_imgs[0].cpu().numpy(),0.5,tensorreturn=False))
 
-        with torch.no_grad():
+            # Adjust learning rates
+            adjust_learning_rate(optimizer_G, target_loss, g_loss)
+            adjust_learning_rate(optimizer_D, target_loss, d_loss)
+
+
+
+
+            Dlossarr.append(d_loss.item())
+            Glossarr.append(g_loss.item())
+            MSEarr.append(mloss)
+            with torch.no_grad():
+                ICarr.append(imagecorrelation(real_imgs[0].cpu().numpy(), fake_imgs[0].cpu().numpy()))
+
+
             print(
-                f"[{epoch}] D_loss: {d_loss.item():.4f}, G_loss: {g_loss.item():.4f}, Mass Error: {mloss:.2f}%, IC%: {ic:.2f}%")
-            fig, axs = plt.subplots(2, 4, figsize=(10, 5))
-            for i in range(4):
+                f"[TEST] D_loss: {d_loss.item():.4f}, G_loss: {g_loss.item():.4f}, Mass Error: {mloss:.2f}%, IC%: {ic:.2f}%")
+            fig, axs = plt.subplots(2, 8, figsize=(15, 8))
+            for i in range(8):
                 axs[0, i].imshow(cutoff(real_imgs[i, 0].cpu(),0.5), cmap="viridis")
-                axs[0, i].set_title("Real")
+                axs[0, i].set_title("Test Real")
                 axs[0, i].axis("off")
-                axs[1, i].imshow(cutoff(fake_imgs[i, 0].cpu(),0.5), cmap="viridis")
+                axs[1, i].imshow((fake_imgs[i, 0].cpu()), cmap="viridis")
                 ic_value = imagecorrelation(
                     cutoff(real_imgs[i, 0].cpu().numpy(), 0.5, tensorreturn=False),
                     cutoff(fake_imgs[i, 0].cpu().numpy(), 0.5, tensorreturn=False)
@@ -300,38 +438,4 @@ for epoch in trange(epochs+1):
                 axs[1, i].axis("off")
 
             plt.tight_layout()
-            #plt.show()
-
-    #scheduler step
-    scheduler_G.step()
-    scheduler_D.step()
-
-plt.figure(figsize=(15, 5))
-
-# Plot Glossarr and Dlossarr on the first subplot
-plt.subplot(1, 3, 1)
-plt.plot(Dlossarr, label='Discriminator Loss')
-plt.plot(Glossarr, label='Generator Loss')
-plt.xlabel('Epochs (every 20)')
-plt.ylabel('Loss')
-plt.legend()
-plt.title('Generator and Discriminator Loss')
-
-# Plot MSEarr on the second subplot
-plt.subplot(1, 3, 2)
-plt.plot(MSEarr, label='Mass Error', color='orange')
-plt.xlabel('Epochs (every 20)')
-plt.ylabel('% Error')
-plt.legend()
-plt.title('Mass Error')
-
-# Plot MSEarr on the second subplot
-plt.subplot(1, 3, 3)
-plt.plot(ICarr, label='Image Correlation', color='blue')
-plt.xlabel('Epochs (every 20)')
-plt.ylabel('% Correlation')
-plt.legend()
-plt.title('Image Correlation')
-
-plt.tight_layout()
-plt.show()
+            plt.show()

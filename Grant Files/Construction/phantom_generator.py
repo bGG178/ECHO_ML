@@ -2,6 +2,7 @@ import numpy as np
 from skimage.draw import disk, line
 import matplotlib.pyplot as plt
 import os
+import json
 
 class PhantomGenerator:
     def __init__(self, E, r, grid_size=128): # E = number of electrodes, r = radius of object?
@@ -64,8 +65,8 @@ def generatesamples(num_samples):
 if __name__ == "__main__":
     ELECTRODE_NUM = 12  # Number of electrodes
     r = 1.0 # domain radius?
-    grid_size = 128 # image size (square image0
-    num_samples = 100  # Number of samples to generate
+    grid_size = 64 # image size (square image0
+    num_samples = 50000 # Number of samples to generate
 
     gen = PhantomGenerator(ELECTRODE_NUM, r, grid_size) # generate phantoms
     samples = generatesamples(num_samples) # generate sample images
@@ -89,14 +90,29 @@ if __name__ == "__main__":
         #plt.axis('equal')
         #plt.show()
 
-    output_dir = r"/DATA/GrantGeneratedData" # store the generated samples and data here
+    output_dir = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData"  # Absolute path to the desired directory
     try:
         os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(output_dir, "combined_datatest.npy")
-        np.save(output_file, combined_data, allow_pickle=True)
+        output_file = os.path.join(output_dir, "fiftyk_64.json")
+
+        # Convert `ndarray` to list for JSON serialization
+        for data in combined_data:
+            data['measurements'] = data['measurements'].tolist()
+
+        # Save to JSON
+        with open(output_file, 'w') as f:
+            json.dump(combined_data, f)
         print(f"Data successfully saved to {output_file}")
+
+        # Load the JSON file
+        with open(output_file, 'r') as f:
+            loaded_data = json.load(f)
+
+        # Convert lists back to `ndarray` if needed
+        for data in loaded_data:
+            data['measurements'] = np.array(data['measurements'])
+
+        print("Loaded data example:", loaded_data[0])
     except Exception as e:
         print(f"Error saving file: {e}")
 
-    loaded_data = np.load(output_file, allow_pickle=True)
-    print("Loaded data example:", loaded_data[0])
