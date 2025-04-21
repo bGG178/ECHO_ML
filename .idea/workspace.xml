@@ -4,11 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+ECHO_CGAN v0.0.4&#10;+CGAN_paper3.py combining connor and grant codebases">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_paper3.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper3.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator.py" afterDir="false" />
+    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+ECHO_CGAN v0.1.1&#10;*Adding Test Datasets">
+      <change beforePath="$PROJECT_DIR$/DATA/GrantGeneratedData/threehundred_k_32.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -82,7 +79,7 @@
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\CGAN Github Lonatang" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.modulator">
     <configuration name="modulator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="ECHO_ML" />
       <option name="ENV_FILES" value="" />
@@ -222,7 +219,23 @@
       <option name="project" value="LOCAL" />
       <updated>1744165137370</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="+ECHO_CGAN v0.1.0&#10;*First Operable Iteration">
+      <option name="closed" value="true" />
+      <created>1745169223773</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1745169223773</updated>
+    </task>
+    <task id="LOCAL-00011" summary="+ECHO_CGAN v0.1.1&#10;*Adding Test Datasets">
+      <option name="closed" value="true" />
+      <created>1745259738649</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1745259738649</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -277,7 +290,9 @@
     <MESSAGE value="+phantom_generator.py&#10;+New Datasets" />
     <MESSAGE value="+Trying LBP&#10;*Changes to modulator.py for presentatbility" />
     <MESSAGE value="+FIRST ECHO PROTOTYPE" />
-    <option name="LAST_COMMIT_MESSAGE" value="+FIRST ECHO PROTOTYPE" />
+    <MESSAGE value="+ECHO_CGAN v0.1.0&#10;*First Operable Iteration" />
+    <MESSAGE value="+ECHO_CGAN v0.1.1&#10;*Adding Test Datasets" />
+    <option name="LAST_COMMIT_MESSAGE" value="+ECHO_CGAN v0.1.1&#10;*Adding Test Datasets" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

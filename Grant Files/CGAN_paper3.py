@@ -193,11 +193,11 @@ if __name__ == "__main__":
     batch_size = 16
     image_size = 64 #WORKS WELL FOR 32x32, 64x64 and 128x128 need work!
     target_loss = 0.45
-    epochs = 150
+    epochs = 20
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    datafile = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\fiftyk_64.json"
+    datafile = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\tenk_64.json"
     if not os.path.exists(datafile):
         raise FileNotFoundError(f"File not found: {datafile}")
 
@@ -407,9 +407,7 @@ if __name__ == "__main__":
             with torch.no_grad():
                 ic = imagecorrelation(cutoff(real_imgs[0].cpu().numpy(),0.5,tensorreturn=False), cutoff(fake_imgs[0].cpu().numpy(),0.5,tensorreturn=False))
 
-            # Adjust learning rates
-            adjust_learning_rate(optimizer_G, target_loss, g_loss)
-            adjust_learning_rate(optimizer_D, target_loss, d_loss)
+
 
 
 

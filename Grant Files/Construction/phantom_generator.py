@@ -66,7 +66,7 @@ if __name__ == "__main__":
     ELECTRODE_NUM = 12  # Number of electrodes
     r = 1.0 # domain radius?
     grid_size = 64 # image size (square image0
-    num_samples = 50000 # Number of samples to generate
+    num_samples = 30000 # Number of samples to generate
 
     gen = PhantomGenerator(ELECTRODE_NUM, r, grid_size) # generate phantoms
     samples = generatesamples(num_samples) # generate sample images
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     output_dir = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData"  # Absolute path to the desired directory
     try:
         os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(output_dir, "fiftyk_64.json")
+        output_file = os.path.join(output_dir, "thirtyk_64.json")
 
         # Convert `ndarray` to list for JSON serialization
         for data in combined_data:
