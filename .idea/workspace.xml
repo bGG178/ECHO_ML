@@ -4,51 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+ECHO_CGAN v0.1.1&#10;*Adding Test Datasets">
-      <change afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper_ECHO_1.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Grant Files/Construction/modulator2.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator_1emitting.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator_newattempt.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator_newnewattempt.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Grant Files/ECHO_0.1_Loader.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Grant Files/phantom_generator_newattempt_1emit15.py" afterDir="false" />
+    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="ECHO ML integration v1.0 with pth">
+      <change afterPath="$PROJECT_DIR$/Grant Files/ECHO_0.1_Loader_machine.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/DATA/GrantGeneratedData/thirtyk_64.json" beforeDir="false" afterPath="$PROJECT_DIR$/DATA/GrantGeneratedData/thirtyk_64.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_paper3.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper3.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET/circulant105.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET/circulant_66x66.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/discriminator_cgan_ect.pth" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/generator_cgan_ect.pth" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_001.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_002.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_003.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_004.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_005.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_006.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_007.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_008.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_009.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_010.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_011.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_012.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_013.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_014.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_015.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_016.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_017.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_018.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_019.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_020.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_021.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_022.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_023.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_024.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_025.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_026.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_027.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_028.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_029.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/outputs/epoch_030.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Grant Files/Construction/modulator2.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/Construction/modulator2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator_newnewattempt.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator_newnewattempt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Grant Files/ECHO_0.1_Loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/ECHO_0.1_Loader.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -102,6 +63,7 @@
     &quot;Python.CGAN_paper3.executor&quot;: &quot;Run&quot;,
     &quot;Python.CGAN_paper_ECHO_1.executor&quot;: &quot;Run&quot;,
     &quot;Python.ECHO_0.1_Loader.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ECHO_0.1_Loader_machine.executor&quot;: &quot;Run&quot;,
     &quot;Python.LBP.executor&quot;: &quot;Run&quot;,
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
     &quot;Python.modulator.executor&quot;: &quot;Run&quot;,
@@ -116,14 +78,14 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/welov/PycharmProjects/ECHO_ML/Grant Files/Construction&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/welov/PycharmProjects/ECHO_ML/Grant Files&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
+      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
@@ -320,7 +282,23 @@
       <option name="project" value="LOCAL" />
       <updated>1745260305951</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="ECHO ML integration v1.0">
+      <option name="closed" value="true" />
+      <created>1746132094219</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1746132094219</updated>
+    </task>
+    <task id="LOCAL-00014" summary="ECHO ML integration v1.0 with pth">
+      <option name="closed" value="true" />
+      <created>1746132225442</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1746132225442</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -377,7 +355,9 @@
     <MESSAGE value="+FIRST ECHO PROTOTYPE" />
     <MESSAGE value="+ECHO_CGAN v0.1.0&#10;*First Operable Iteration" />
     <MESSAGE value="+ECHO_CGAN v0.1.1&#10;*Adding Test Datasets" />
-    <option name="LAST_COMMIT_MESSAGE" value="+ECHO_CGAN v0.1.1&#10;*Adding Test Datasets" />
+    <MESSAGE value="ECHO ML integration v1.0" />
+    <MESSAGE value="ECHO ML integration v1.0 with pth" />
+    <option name="LAST_COMMIT_MESSAGE" value="ECHO ML integration v1.0 with pth" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

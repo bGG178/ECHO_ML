@@ -1,0 +1,539 @@
+Index: Grant Files/CGAN_paper.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import torch\r\nimport torch.nn as nn\r\nimport torch.nn.functional as F\r\nimport torch.optim as optim\r\nfrom torch.types import Device\r\nfrom torch.utils.data import DataLoader, TensorDataset\r\nimport numpy as np\r\nimport matplotlib.pyplot as plt\r\nfrom Construction.modulator import build_circulant_matrix, matrix_to_image\r\nfrom Construction.phantom_generator import PhantomGenerator\r\n\r\n\r\n\"\"\"\r\nMake sure capacitances and phantoms go into training, but testing only on capacitances\r\n\"\"\"\r\n\r\n\"\"\"\r\nDropout method\r\n\r\nself.conv_layers = nn.Sequential(\r\n    nn.Conv2d(in_channels + 1, 64, kernel_size=4, stride=2, padding=1),\r\n    nn.LeakyReLU(0.2, inplace=True),\r\n    nn.Dropout(0.3),  # Add dropout with a probability of 0.3\r\n    nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),\r\n    nn.BatchNorm2d(128),\r\n    nn.LeakyReLU(0.2, inplace=True),\r\n    nn.Dropout(0.3),  # Add dropout\r\n    nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),\r\n    nn.BatchNorm2d(256),\r\n    nn.LeakyReLU(0.2, inplace=True),\r\n    nn.Dropout(0.3),  # Add dropout\r\n    nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),\r\n    nn.BatchNorm2d(512),\r\n    nn.LeakyReLU(0.2, inplace=True),\r\n)\r\n\"\"\"\r\n\"\"\"\r\nThe train_cgan_ect function trains the Conditional GAN (CGAN) with:\r\nThe raw capacitance data (cond_input) as the condition input to the generator and discriminator.\r\nThe phantom data (real_imgs) as the target output for the generator and the real input for the discriminator.\r\nThe generator learns to map the capacitance data to the phantom data, while the discriminator ensures the generator produces realistic outputs.\r\n\"\"\"\r\n\r\n\r\n\"\"\"\r\nPotential improvements\r\n\r\nHere are some strategies to lower the generator loss in your GAN training:\r\n\r\n### 1. **Adjust Learning Rates**\r\n   - Reduce the learning rate of the generator or discriminator to stabilize training.\r\n   - Example:\r\n     ```python\r\n     opt_G = optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.999))\r\n     opt_D = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))\r\n     ```\r\n\r\n### 2. **Balance Training Between Generator and Discriminator**\r\n   - Train the generator more frequently than the discriminator (e.g., one generator step for every two discriminator steps).\r\n   - Example:\r\n     ```python\r\n     if i % 2 == 0:  # Train generator every other step\r\n         g_loss.backward()\r\n         opt_G.step()\r\n     ```\r\n\r\n### 3. **Use Label Smoothing**\r\n   - Apply label smoothing to the discriminator's labels to make it less confident, helping the generator learn better.\r\n   - Example:\r\n     ```python\r\n     valid = torch.full((batch_size, 1), 0.9, device=device)  # Use 0.9 instead of 1.0\r\n     fake = torch.zeros(batch_size, 1, device=device)\r\n     ```\r\n\r\n### 4. **Add Noise to Discriminator Inputs**\r\n   - Add small random noise to the real and fake inputs to the discriminator to make it less confident.\r\n   - Example:\r\n     ```python\r\n     real_imgs += torch.randn_like(real_imgs) * 0.05\r\n     gen_imgs += torch.randn_like(gen_imgs) * 0.05\r\n     ```\r\n\r\n### 5. **Improve Generator Architecture**\r\n   - Add more layers, use skip connections, or increase the number of filters in the generator to improve its capacity.\r\n\r\n### 6. **Use a Different Loss Function**\r\n   - Replace binary cross-entropy loss with a loss function like Wasserstein loss or Least Squares GAN loss for more stable training.\r\n   - Example (Least Squares GAN):\r\n     ```python\r\n     criterion = nn.MSELoss()\r\n     ```\r\n\r\n### 7. **Pretrain the Generator**\r\n   - Pretrain the generator on a simpler task (e.g., reconstructing real images) before adversarial training.\r\n\r\n### 8. **Gradient Penalty**\r\n   - Add a gradient penalty term to the discriminator loss to prevent it from becoming too strong (e.g., WGAN-GP).\r\n\r\n### 9. **Normalize Inputs**\r\n   - Ensure that all inputs (real images, generated images, and conditions) are properly normalized to the same range (e.g., [-1, 1]).\r\n\r\n### 10. **Increase Batch Size**\r\n   - Use a larger batch size to stabilize gradients and improve training dynamics.\r\n\r\nBy applying one or more of these strategies, you can help reduce the generator loss and improve the overall performance of your GAN.\r\n\"\"\"\r\n\r\n#https://www.sciencedirect.com/science/article/pii/S0955598624000463\r\n\r\n#--HYPERPARAMS--\r\nnoise_dim = 100  # Not used directly now, since U-Net generator uses only the condition input.\r\nbatch_size = 32\r\n\r\n\r\n# U-Net style Generator with skip connections\r\nclass UNetGenerator(nn.Module):\r\n    def __init__(self, in_channels=1, out_channels=1, base_filters=64):\r\n        super(UNetGenerator, self).__init__()\r\n        # Encoder layers\r\n        self.enc1 = nn.Sequential(\r\n            nn.Conv2d(in_channels, base_filters, kernel_size=4, stride=2, padding=1),\r\n            nn.BatchNorm2d(base_filters),\r\n            nn.ReLU(inplace=True)\r\n        )  # Output: (base_filters, H/2, W/2)\r\n\r\n        self.enc2 = nn.Sequential(\r\n            nn.Conv2d(base_filters, base_filters * 2, kernel_size=4, stride=2, padding=1),\r\n            nn.BatchNorm2d(base_filters * 2),\r\n            nn.ReLU(inplace=True)\r\n        )  # Output: (base_filters*2, H/4, W/4)\r\n\r\n        # Bottleneck layer\r\n        self.bottleneck = nn.Sequential(\r\n            nn.Conv2d(base_filters * 2, base_filters * 4, kernel_size=4, stride=2, padding=1),\r\n            nn.BatchNorm2d(base_filters * 4),\r\n            nn.ReLU(inplace=True)\r\n        )  # Output: (base_filters*4, H/8, W/8)\r\n\r\n        # Decoder layers with skip connections\r\n        self.dec2 = nn.Sequential(\r\n            nn.ConvTranspose2d(base_filters * 4, base_filters * 2, kernel_size=4, stride=2, padding=1),\r\n            nn.BatchNorm2d(base_filters * 2),\r\n            nn.ReLU(inplace=True)\r\n        )  # Output: (base_filters*2, H/4, W/4)\r\n\r\n        self.dec1 = nn.Sequential(\r\n            nn.ConvTranspose2d(base_filters * 4, base_filters, kernel_size=4, stride=2, padding=1),\r\n            nn.BatchNorm2d(base_filters),\r\n            nn.ReLU(inplace=True)\r\n        )  # Output: (base_filters, H/2, W/2)\r\n\r\n        # Final layer to get desired output size\r\n        self.final = nn.Sequential(\r\n            nn.ConvTranspose2d(base_filters * 2, out_channels, kernel_size=4, stride=2, padding=1),\r\n            nn.Tanh()\r\n        )  # Output: (out_channels, H, W)\r\n\r\n    def forward(self, x):\r\n        # Encoder\r\n        e1 = self.enc1(x)  # e.g., for input (1, 16, 15), output ~ (base_filters, H/2, W/2)\r\n        e2 = self.enc2(e1)  # (base_filters*2, H/4, W/4)\r\n        b = self.bottleneck(e2)  # (base_filters*4, H/8, W/8)\r\n\r\n        # Decoder with skip connection from encoder\r\n        d2 = self.dec2(b)  # (base_filters*2, H/4, W/4)\r\n        d2 = torch.cat([d2, self._crop_to_match(d2, e2)], dim=1)  # Concatenate along channel dim\r\n\r\n        d1 = self.dec1(d2)  # (base_filters, H/2, W/2)\r\n        d1 = torch.cat([d1, self._crop_to_match(d1, e1)], dim=1)  # Concatenate along channel dim\r\n\r\n        out = self.final(d1)  # Upsample to (out_channels, H, W)\r\n        return out\r\n\r\n    def _crop_to_match(self, source, target):\r\n        \"\"\"\r\n        Crops the source tensor to match the spatial dimensions of the target tensor.\r\n        \"\"\"\r\n        _, _, h, w = target.size()\r\n        return source[:, :, :h, :w]\r\n\r\n\r\n# Discriminator conditioned on the capacitance measurement\r\nclass Discriminator(nn.Module):\r\n    def __init__(self, condition_shape=(1, 66, 66), in_channels=1):\r\n        super(Discriminator, self).__init__()\r\n        self.conv_layers = nn.Sequential(\r\n            nn.Conv2d(in_channels + 1, 64, kernel_size=4, stride=2, padding=1),\r\n            nn.LeakyReLU(0.2, inplace=True),\r\n            nn.Dropout(0.3),  # Add dropout with a probability of 0.3\r\n            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),\r\n            nn.BatchNorm2d(128),\r\n            nn.LeakyReLU(0.2, inplace=True),\r\n            nn.Dropout(0.3),  # Add dropout\r\n            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),\r\n            nn.BatchNorm2d(256),\r\n            nn.LeakyReLU(0.2, inplace=True),\r\n            nn.Dropout(0.3),  # Add dropout\r\n            nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),\r\n            nn.BatchNorm2d(512),\r\n            nn.LeakyReLU(0.2, inplace=True),\r\n        )\r\n\r\n        dummy_input = torch.zeros(1, in_channels + 1, *condition_shape[1:]).to(device)\r\n        flattened_size = self._get_flattened_size(dummy_input)\r\n        print(f\"Flattened size: {flattened_size}\"),  # Debugging line\r\n\r\n        self.fc_layers = nn.Sequential(\r\n\r\n            nn.Flatten(),\r\n            nn.Linear(flattened_size, 1),\r\n            nn.Sigmoid()\r\n        )\r\n\r\n    def _get_flattened_size(self, x):\r\n        x = self.conv_layers(x)\r\n        return x.numel()\r\n\r\n    def forward(self, image, condition):\r\n        # Ensure the condition is resized to match the image dimensions\r\n        condition_upsampled = F.interpolate(condition, size=image.shape[2:], mode='bilinear', align_corners=False)\r\n        # Concatenate the image and condition along the channel dimension\r\n        x = torch.cat([image, condition_upsampled], dim=1)\r\n        x = self.conv_layers(x)\r\n        #print(f\"Shape before Linear layer: {x.shape}\")  # Debugging line\r\n        x = x.view(x.size(0), -1)  # Flatten the tensor\r\n        validity = self.fc_layers(x)\r\n        return validity\r\n\r\n\r\n# Training loop for CGAN-ECT using U-Net generator\r\ndef train_cgan_ect(generator, discriminator, dataloader, num_epochs=2, device='cuda'):\r\n    genlossarr = []\r\n    dislossarr = []\r\n\r\n    # Optimizers for both networks\r\n    opt_G = optim.Adam(generator.parameters(), lr=0.00012, betas=(0.5, 0.999))\r\n    opt_D = optim.Adam(discriminator.parameters(), lr=0.00012, betas=(0.5, 0.999))\r\n\r\n    criterion = nn.BCELoss()  # Binary cross-entropy loss\r\n\r\n    generator.to(device)\r\n    discriminator.to(device)\r\n\r\n    for epoch in range(num_epochs):\r\n        for i, (real_imgs, cond_input) in enumerate(dataloader):\r\n            batch_size = real_imgs.size(0)\r\n            real_imgs = real_imgs.to(device)\r\n            cond_input = cond_input.to(device)\r\n\r\n            # Resize real images and condition input to a consistent size\r\n            real_imgs = F.interpolate(real_imgs, size=(64, 64), mode='bilinear', align_corners=False)\r\n            cond_input = F.interpolate(cond_input, size=(64, 64), mode='bilinear', align_corners=False)\r\n\r\n            # Adversarial ground truths\r\n            valid = torch.full((batch_size, 1), 0.9, device=device)\r\n            # Use 0.9 instead of 1.0\r\n            fake = torch.zeros(batch_size, 1, device=device)\r\n\r\n            # ---------------------\r\n            #  Train Generator (U-Net)\r\n            # ---------------------\r\n            opt_G.zero_grad()\r\n            # Generator produces an image given the condition (raw capacitance) measurement.\r\n            gen_imgs = generator(cond_input)\r\n            # Resize generated images to match the discriminator's expected input size\r\n            gen_imgs = F.interpolate(gen_imgs, size=(64, 64), mode='bilinear', align_corners=False)\r\n            # Loss measures generator's ability to fool the discriminator\r\n            g_loss = criterion(discriminator(gen_imgs, cond_input), valid)\r\n            g_loss.backward()\r\n            opt_G.step()\r\n\r\n            # MORE RESEARCH Add noise to real and generated images\r\n            #real_imgs += torch.randn_like(real_imgs) * 0.05  # Add noise to real images\r\n            #gen_imgs += torch.randn_like(gen_imgs) * 0.05  # Add noise to generated images\r\n\r\n            # ---------------------\r\n            #  Train Discriminator\r\n            # ---------------------\r\n            opt_D.zero_grad()\r\n            # Loss for real images\r\n            real_loss = criterion(discriminator(real_imgs, cond_input), valid)\r\n            # Loss for fake images\r\n            fake_loss = criterion(discriminator(gen_imgs.detach(), cond_input), fake)\r\n            d_loss = (real_loss + fake_loss) / 2\r\n            d_loss.backward()\r\n            opt_D.step()\r\n\r\n            if i % 50 == 0:\r\n                print(\r\n                    f\"[Epoch {epoch}/{num_epochs}] [Batch {i}/{len(dataloader)}] [D loss: {d_loss.item():.4f}] [G loss: {g_loss.item():.4f}]\")\r\n                dislossarr.append(d_loss.item())\r\n                genlossarr.append(g_loss.item())\r\n\r\n    plt.plot(dislossarr, label='Discriminator Loss')\r\n    plt.plot(genlossarr, label='Generator Loss')\r\n    plt.show()\r\n\r\n\r\n# Main code with dummy data\r\nif __name__ == \"__main__\":\r\n\r\n    device = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")\r\n\r\n\r\n\r\n    # Create U-Net generator and discriminator instances\r\n    generator = UNetGenerator(in_channels=1, out_channels=1, base_filters=64)\r\n    discriminator = Discriminator(condition_shape=(1, 66, 66), in_channels=1)\r\n\r\n    # Load the combined dataset\r\n    datafile = r\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\DATA\\GrantGeneratedData\\combined_data.npy\"\r\n    combined_data = np.load(datafile, allow_pickle=True)\r\n\r\n    # Split the dataset into training (90%) and testing (10%)\r\n    train_size = int(0.9 * len(combined_data))\r\n    train_data = combined_data[:train_size]\r\n    test_data = combined_data[train_size:]\r\n\r\n\r\n    \"\"\"WRONG, for some reason its piping measurements into both capacitance and real img, when it should just be doing\r\n    capacitance. Fix!\"\"\"\r\n    # Prepare the training dataset\r\n    phantom_generator = PhantomGenerator(12, 1, 128)\r\n\r\n    train_real_images = torch.tensor(\r\n        np.array([phantom_generator.generate_phantom(data['objects']) for data in train_data]),\r\n        dtype=torch.float32\r\n    ).unsqueeze(1)\r\n\r\n    train_capacitance = torch.tensor(\r\n        np.array([build_circulant_matrix(data['measurements']) for data in train_data]),\r\n        dtype=torch.float32\r\n    ).unsqueeze(1)\r\n\r\n    train_dataset = TensorDataset(train_real_images, train_capacitance)\r\n    train_dataloader = DataLoader(\r\n        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True\r\n    )\r\n\r\n    # Prepare the testing dataset\r\n    test_real_images = torch.tensor(\r\n        np.array([phantom_generator.generate_phantom(data['objects']) for data in test_data]),\r\n        dtype=torch.float32\r\n    ).unsqueeze(1)\r\n\r\n    test_capacitance = torch.tensor(\r\n        np.array([build_circulant_matrix(data['measurements']) for data in test_data]),\r\n        dtype=torch.float32\r\n    ).unsqueeze(1)\r\n\r\n    test_dataset = TensorDataset(test_real_images, test_capacitance)\r\n    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)\r\n\r\n    #for i, (real_img, cond_input) in enumerate(test_dataloader):\r\n    #    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))\r\n    #    ax1.set_title(\"Actual Phantom\")\r\n    #    ax1.imshow(real_img.cpu().squeeze(0).squeeze(0), cmap='gray')\r\n    #    ax2.imshow(cond_input.cpu().squeeze(0).squeeze(0), cmap='gray')\r\n    #    plt.tight_layout()\r\n    #    plt.show()\r\n\r\n    # TRAINING!!!Train the CGAN-ECT with U-Net generator!!!!!!!!!!!!!!!!!\r\n    train_cgan_ect(generator, discriminator, train_dataloader, num_epochs=2, device=device)\r\n\r\n    # Testing loop with visualization\r\n    generator.eval()\r\n    with torch.no_grad():\r\n        for i, (real_img, cond_input) in enumerate(test_dataloader):\r\n            real_img = real_img.to(device)\r\n            cond_input = cond_input.to(device)\r\n\r\n            # Generate reconstructed image\r\n            reconstructed_img = generator(cond_input).to(device).cpu().squeeze(0).squeeze(0)\r\n\r\n            reconstructed_img -= reconstructed_img.min()\r\n            reconstructed_img /= reconstructed_img.max()\r\n            # Display every 100th test result\r\n            if i % 100 == 0:\r\n                real_img = real_img.cpu().squeeze(0).squeeze(0)\r\n                cond_input = cond_input.cpu().squeeze(0).squeeze(0)\r\n\r\n                # Plot the actual phantom, capacitance image, and reconstruction\r\n                fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))\r\n                ax1.imshow(real_img, cmap='gray')\r\n                ax1.set_title(\"Actual Phantom\")\r\n                ax2.imshow(cond_input, cmap='gray')\r\n                ax2.set_title(\"Capacitance Image\")\r\n                ax3.imshow(reconstructed_img, cmap='gray')\r\n                ax3.set_title(\"Reconstruction Attempt\")\r\n                plt.tight_layout()\r\n                plt.show()\r\n\r\n    # Dummy dataset:\r\n    # real_imgs: simulated tomography images (e.g., size 16x16, adjust as needed)\r\n    # cond_input: raw capacitance measurements (16x15)\r\n    #real_images = torch.randn(100, 1, 16, 16)  # Real images (can be adjusted to the desired resolution)\r\n    #raw_capacitance = torch.randn(100, 1, 16, 15)  # 16x15 raw capacitance input\r\n    #dataset = TensorDataset(real_images, raw_capacitance)\r\n    #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)\r\n\r\n    # Train the CGAN-ECT with U-Net generator\r\n    #train_cgan_ect(generator, discriminator, dataloader, num_epochs=10, device=device)\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Grant Files/CGAN_paper.py b/Grant Files/CGAN_paper.py
+--- a/Grant Files/CGAN_paper.py	(revision 45449b9cc07607328786abc5feae6f4cc41a0bf5)
++++ b/Grant Files/CGAN_paper.py	(date 1744305063518)
+@@ -109,7 +109,7 @@
+ 
+ #--HYPERPARAMS--
+ noise_dim = 100  # Not used directly now, since U-Net generator uses only the condition input.
+-batch_size = 32
++batch_size = 32#32
+ 
+ 
+ # U-Net style Generator with skip connections
+@@ -155,21 +155,28 @@
+             nn.Tanh()
+         )  # Output: (out_channels, H, W)
+ 
+-    def forward(self, x):
++    def forward(self, x, capacitance_matrix):
+         # Encoder
+-        e1 = self.enc1(x)  # e.g., for input (1, 16, 15), output ~ (base_filters, H/2, W/2)
+-        e2 = self.enc2(e1)  # (base_filters*2, H/4, W/4)
+-        b = self.bottleneck(e2)  # (base_filters*4, H/8, W/8)
++        e1 = self.enc1(x)
++        e2 = self.enc2(e1)
++        b = self.bottleneck(e2)
+ 
+-        # Decoder with skip connection from encoder
+-        d2 = self.dec2(b)  # (base_filters*2, H/4, W/4)
+-        d2 = torch.cat([d2, self._crop_to_match(d2, e2)], dim=1)  # Concatenate along channel dim
++        # Decoder with skip connections
++        d2 = self.dec2(b)
++        d2 = torch.cat([d2, self._crop_to_match(d2, e2)], dim=1)
++        d1 = self.dec1(d2)
++        d1 = torch.cat([d1, self._crop_to_match(d1, e1)], dim=1)
+ 
+-        d1 = self.dec1(d2)  # (base_filters, H/2, W/2)
+-        d1 = torch.cat([d1, self._crop_to_match(d1, e1)], dim=1)  # Concatenate along channel dim
++        # Final output
++        generated_image = self.final(d1)
+ 
+-        out = self.final(d1)  # Upsample to (out_channels, H, W)
+-        return out
++        # Resize capacitance_matrix to match generated_image
++        capacitance_matrix_resized = F.interpolate(capacitance_matrix, size=generated_image.shape[2:], mode='bilinear',
++                                                   align_corners=False)
++
++        # Concatenate with the resized capacitance matrix
++        concatenated_output = torch.cat([generated_image, capacitance_matrix_resized], dim=1)
++        return concatenated_output
+ 
+     def _crop_to_match(self, source, target):
+         """
+@@ -183,29 +190,34 @@
+ class Discriminator(nn.Module):
+     def __init__(self, condition_shape=(1, 66, 66), in_channels=1):
+         super(Discriminator, self).__init__()
+-        self.conv_layers = nn.Sequential(
+-            nn.Conv2d(in_channels + 1, 64, kernel_size=4, stride=2, padding=1),
++
++        # Fake portion: Conv2D (3x3, stride 1) + MaxPooling2D (stride 2)
++        self.fake_conv = nn.Sequential(
++            nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1),
+             nn.LeakyReLU(0.2, inplace=True),
+-            nn.Dropout(0.3),  # Add dropout with a probability of 0.3
+-            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
++            nn.MaxPool2d(kernel_size=2, stride=2)
++        )
++
++        # Real portion: MaxPooling2D (stride 2)
++        self.real_pool = nn.MaxPool2d(kernel_size=2, stride=2)
++
++        # Combined processing layers
++        self.conv_layers = nn.Sequential(
++            nn.Conv2d(64 + 64, 128, kernel_size=4, stride=2, padding=1),
+             nn.BatchNorm2d(128),
+             nn.LeakyReLU(0.2, inplace=True),
+-            nn.Dropout(0.3),  # Add dropout
+             nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
+             nn.BatchNorm2d(256),
+             nn.LeakyReLU(0.2, inplace=True),
+-            nn.Dropout(0.3),  # Add dropout
+             nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),
+             nn.BatchNorm2d(512),
+             nn.LeakyReLU(0.2, inplace=True),
+         )
+ 
+-        dummy_input = torch.zeros(1, in_channels + 1, *condition_shape[1:]).to(device)
++        # Fully connected layers
++        dummy_input = torch.zeros(1, 64 + 64, condition_shape[1] // 2, condition_shape[2] // 2)
+         flattened_size = self._get_flattened_size(dummy_input)
+-        print(f"Flattened size: {flattened_size}"),  # Debugging line
+-
+         self.fc_layers = nn.Sequential(
+-
+             nn.Flatten(),
+             nn.Linear(flattened_size, 1),
+             nn.Sigmoid()
+@@ -216,25 +228,34 @@
+         return x.numel()
+ 
+     def forward(self, image, condition):
+-        # Ensure the condition is resized to match the image dimensions
+-        condition_upsampled = F.interpolate(condition, size=image.shape[2:], mode='bilinear', align_corners=False)
+-        # Concatenate the image and condition along the channel dimension
+-        x = torch.cat([image, condition_upsampled], dim=1)
+-        x = self.conv_layers(x)
+-        #print(f"Shape before Linear layer: {x.shape}")  # Debugging line
+-        x = x.view(x.size(0), -1)  # Flatten the tensor
++        # Fake portion
++        fake_features = self.fake_conv(condition)
++
++        # Real portion
++        real_features = self.real_pool(image)
++
++        # Concatenate fake and real features
++        combined_features = torch.cat([fake_features, real_features], dim=1)
++
++        # Adjust the number of channels to match the expected input of conv_layers
++        if combined_features.size(1) != 128:
++            combined_features = nn.Conv2d(combined_features.size(1), 128, kernel_size=1)(combined_features)
++
++        # Process through the rest of the discriminator
++        x = self.conv_layers(combined_features)
++        x = x.view(x.size(0), -1)  # Flatten
+         validity = self.fc_layers(x)
+         return validity
+ 
+ 
+ # Training loop for CGAN-ECT using U-Net generator
+-def train_cgan_ect(generator, discriminator, dataloader, num_epochs=2, device='cuda'):
++def train_cgan_ect(generator, discriminator, dataloader, num_epochs=3, device='cuda'):
+     genlossarr = []
+     dislossarr = []
+ 
+     # Optimizers for both networks
+-    opt_G = optim.Adam(generator.parameters(), lr=0.00012, betas=(0.5, 0.999))
+-    opt_D = optim.Adam(discriminator.parameters(), lr=0.00012, betas=(0.5, 0.999))
++    opt_G = optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.999))
++    opt_D = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+ 
+     criterion = nn.BCELoss()  # Binary cross-entropy loss
+ 
+@@ -261,7 +282,7 @@
+             # ---------------------
+             opt_G.zero_grad()
+             # Generator produces an image given the condition (raw capacitance) measurement.
+-            gen_imgs = generator(cond_input)
++            gen_imgs = generator(real_imgs,cond_input)
+             # Resize generated images to match the discriminator's expected input size
+             gen_imgs = F.interpolate(gen_imgs, size=(64, 64), mode='bilinear', align_corners=False)
+             # Loss measures generator's ability to fool the discriminator
+@@ -291,6 +312,7 @@
+                 dislossarr.append(d_loss.item())
+                 genlossarr.append(g_loss.item())
+ 
++
+     plt.plot(dislossarr, label='Discriminator Loss')
+     plt.plot(genlossarr, label='Generator Loss')
+     plt.show()
+@@ -326,11 +348,13 @@
+         np.array([phantom_generator.generate_phantom(data['objects']) for data in train_data]),
+         dtype=torch.float32
+     ).unsqueeze(1)
++    train_real_images = (train_real_images - 0.5) * 2  # Normalize to [-1, 1]
+ 
+     train_capacitance = torch.tensor(
+         np.array([build_circulant_matrix(data['measurements']) for data in train_data]),
+         dtype=torch.float32
+     ).unsqueeze(1)
++    train_capacitance = (train_capacitance - 0.5) * 2  # Normalize to [-1, 1]
+ 
+     train_dataset = TensorDataset(train_real_images, train_capacitance)
+     train_dataloader = DataLoader(
+@@ -342,11 +366,13 @@
+         np.array([phantom_generator.generate_phantom(data['objects']) for data in test_data]),
+         dtype=torch.float32
+     ).unsqueeze(1)
++    test_real_images = (test_real_images - 0.5) * 2  # Normalize to [-1, 1]
+ 
+     test_capacitance = torch.tensor(
+         np.array([build_circulant_matrix(data['measurements']) for data in test_data]),
+         dtype=torch.float32
+     ).unsqueeze(1)
++    test_capacitance = (test_capacitance - 0.5) * 2  # Normalize to [-1, 1]
+ 
+     test_dataset = TensorDataset(test_real_images, test_capacitance)
+     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+@@ -360,7 +386,7 @@
+     #    plt.show()
+ 
+     # TRAINING!!!Train the CGAN-ECT with U-Net generator!!!!!!!!!!!!!!!!!
+-    train_cgan_ect(generator, discriminator, train_dataloader, num_epochs=2, device=device)
++    train_cgan_ect(generator, discriminator, train_dataloader, num_epochs=1, device=device)
+ 
+     # Testing loop with visualization
+     generator.eval()
+@@ -369,11 +395,36 @@
+             real_img = real_img.to(device)
+             cond_input = cond_input.to(device)
+ 
+-            # Generate reconstructed image
+-            reconstructed_img = generator(cond_input).to(device).cpu().squeeze(0).squeeze(0)
++            reconstructed_img = generator(cond_input, cond_input).to(device).cpu()
++
++            # Print the shape of the generated image
++            #print(f"Shape of reconstructed_img after generation: {reconstructed_img.shape}")
++            # Expected: (1, 2, 64, 64) based on the error
++
++            # Ensure the image is 2D by selecting the first channel or averaging across channels
++            reconstructed_img = reconstructed_img[0].squeeze(0)  # Select the first channel
++            #print(f"Shape of reconstructed_img after squeezing: {reconstructed_img.shape}")
++            # Expected: (2, 64, 64)
++
++            reconstructed_img = reconstructed_img[0]
++            # reconstructed_img = reconstructed_img.mean(dim=0)
++            #print(f"Shape of reconstructed_img after selecting the first channel: {reconstructed_img.shape}")
++            # Expected: (64, 64)
+ 
++            # Alternatively, use the mean across channels:
++            # reconstructed_img = reconstructed_img.mean(dim=0)
++            # print(f"Shape of reconstructed_img after averaging channels: {reconstructed_img.shape}")
++            # Expected: (64, 64)
++
++            # Normalize the image for display
++            #print(
++            #    f"Min and Max of reconstructed_img before normalization: {reconstructed_img.min()}, {reconstructed_img.max()}")
+             reconstructed_img -= reconstructed_img.min()
+             reconstructed_img /= reconstructed_img.max()
++           # print(
++            #    f"Min and Max of reconstructed_img after normalization: {reconstructed_img.min()}, {reconstructed_img.max()}")
++            # Expected: Min = 0.0, Max = 1.0
++
+             # Display every 100th test result
+             if i % 100 == 0:
+                 real_img = real_img.cpu().squeeze(0).squeeze(0)
+Index: Grant Files/CGAN_paper2.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Grant Files/CGAN_paper2.py b/Grant Files/CGAN_paper2.py
+new file mode 100644
+--- /dev/null	(date 1744437621874)
++++ b/Grant Files/CGAN_paper2.py	(date 1744437621874)
+@@ -0,0 +1,215 @@
++import torch
++import torch.nn as nn
++import torch.nn.functional as F
++import torch.optim as optim
++import matplotlib.pyplot as plt
++
++#https://www.sciencedirect.com/science/article/pii/S0955598624000463
++
++#--HYPERPARAMS--
++batch_size = 32
++
++# U-Net style Generator with skip connections
++class UNetGenerator(nn.Module):
++    def __init__(self, in_channels=1, out_channels=1, base_filters=64):
++        super(UNetGenerator, self).__init__()
++        # Encoder layers (Increases feature maps and reduces dimensions)
++        self.enc1 = nn.Sequential(
++            nn.Conv2d(in_channels, base_filters, kernel_size=4, stride=2, padding=1),
++            nn.BatchNorm2d(base_filters),
++            nn.ReLU(inplace=True)
++        )  # Output: (base_filters, H/2, W/2)
++
++        self.enc2 = nn.Sequential(
++            nn.Conv2d(base_filters, base_filters * 2, kernel_size=4, stride=2, padding=1),
++            nn.BatchNorm2d(base_filters * 2),
++            nn.ReLU(inplace=True)
++        )  # Output: (base_filters*2, H/4, W/4)
++
++        # Bottleneck layer (Further reduces dimensions, abstract features)
++        self.bottleneck = nn.Sequential(
++            nn.Conv2d(base_filters * 2, base_filters * 4, kernel_size=4, stride=2, padding=1),
++            nn.BatchNorm2d(base_filters * 4),
++            nn.ReLU(inplace=True)
++        )  # Output: (base_filters*4, H/8, W/8)
++
++        # Decoder layers (Decreases feature maps and increases dimensions)
++        self.dec2 = nn.Sequential(
++            nn.ConvTranspose2d(base_filters * 4, base_filters * 2, kernel_size=4, stride=2, padding=1),
++            nn.BatchNorm2d(base_filters * 2),
++            nn.ReLU(inplace=True)
++        )  # Output: (base_filters*2, H/4, W/4)
++
++        self.dec1 = nn.Sequential(
++            nn.ConvTranspose2d(base_filters * 4, base_filters, kernel_size=4, stride=2, padding=1),
++            nn.BatchNorm2d(base_filters),
++            nn.ReLU(inplace=True)
++        )  # Output: (base_filters, H/2, W/2)
++
++        # Generates output image
++        self.final = nn.Sequential(
++            nn.ConvTranspose2d(base_filters * 2, out_channels, kernel_size=4, stride=2, padding=1),
++            nn.Tanh()
++        )  # Output: (out_channels, H, W)
++
++    def forward(self, x, capacitance_matrix):
++        # Encoder
++        e1 = self.enc1(x)
++        e2 = self.enc2(e1)
++        b = self.bottleneck(e2)
++
++        # Decoder with skip connections
++        d2 = self.dec2(b)
++        d2 = torch.cat([d2, self._crop_to_match(d2, e2)], dim=1)
++        d1 = self.dec1(d2)
++        d1 = torch.cat([d1, self._crop_to_match(d1, e1)], dim=1)
++
++        # Final output
++        generated_image = self.final(d1)
++
++        # Resize capacitance_matrix
++        capacitance_matrix_resized = F.interpolate(capacitance_matrix, size=generated_image.shape[2:], mode='bilinear',
++                                                   align_corners=False)
++
++        # Concatenate with the resized capacitance matrix
++        concatenated_output = torch.cat([generated_image, capacitance_matrix_resized], dim=1)
++        return concatenated_output
++
++    def _crop_to_match(self, source, target):
++        """
++        Crops the source tensor to match the spatial dimensions of the target tensor. Probably not good practice but
++        I couldn't get it working...
++        """
++        _, _, h, w = target.size()
++        return source[:, :, :h, :w]
++
++
++class Discriminator(nn.Module):
++    def __init__(self, condition_shape=(1, 66, 66), in_channels=1):
++        super(Discriminator, self).__init__()
++
++        #Conv2D (3x3, stride 1) + MaxPooling2D (stride 2)
++        self.fake_conv = nn.Sequential(
++            nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1),
++            nn.LeakyReLU(0.2, inplace=True),
++            nn.MaxPool2d(kernel_size=2, stride=2)
++        )
++
++        #MaxPooling2D (stride 2)
++        self.real_pool = nn.MaxPool2d(kernel_size=2, stride=2)
++
++        # Combined processing layers
++        self.conv_layers = nn.Sequential(
++            nn.Conv2d(64 + 64, 128, kernel_size=4, stride=2, padding=1),
++            nn.BatchNorm2d(128),
++            nn.LeakyReLU(0.2, inplace=True),
++            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
++            nn.BatchNorm2d(256),
++            nn.LeakyReLU(0.2, inplace=True),
++            nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),
++            nn.BatchNorm2d(512),
++            nn.LeakyReLU(0.2, inplace=True),
++        )
++
++        # Fully connected layers
++        dummy_input = torch.zeros(1, 64 + 64, condition_shape[1] // 2, condition_shape[2] // 2)
++        flattened_size = self._get_flattened_size(dummy_input)
++        self.fc_layers = nn.Sequential(
++            nn.Flatten(),
++            nn.Linear(flattened_size, 1),
++            nn.Sigmoid()
++        )
++
++    def _get_flattened_size(self, x):
++        """
++        Just for debugging purposes, to get the size of the flattened layer.
++        :param x:
++        :return:
++        """
++        x = self.conv_layers(x)
++        return x.numel()
++
++    def forward(self, image, condition):
++        # Fake portion
++        fake_features = self.fake_conv(condition)
++
++        # Real portion
++        real_features = self.real_pool(image)
++
++        # Concatenate fake and real features
++        combined_features = torch.cat([fake_features, real_features], dim=1)
++
++        # Adjust the number of channels to match the expected input of conv_layers
++        if combined_features.size(1) != 128:
++            combined_features = nn.Conv2d(combined_features.size(1), 128, kernel_size=1)(combined_features)
++
++        # Process through the rest of the discriminator
++        x = self.conv_layers(combined_features)
++        x = x.view(x.size(0), -1)  # Flatten
++        validity = self.fc_layers(x)
++        return validity
++
++
++# Training loop for CGAN-ECT using U-Net generator
++def train_cgan_ect(generator, discriminator, dataloader, num_epochs=3, device='cuda'):
++    genlossarr = []
++    dislossarr = []
++
++    # Optimizers for both networks
++    opt_G = optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.999))
++    opt_D = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
++
++    criterion = nn.BCELoss()  # Binary cross-entropy loss
++
++    generator.to(device)
++    discriminator.to(device)
++
++    for epoch in range(num_epochs):
++        for i, (real_imgs, cond_input) in enumerate(dataloader):
++            batch_size = real_imgs.size(0)
++            real_imgs = real_imgs.to(device)
++            cond_input = cond_input.to(device)
++
++            # Resize real images and condition input to a consistent size
++            real_imgs = F.interpolate(real_imgs, size=(64, 64), mode='bilinear', align_corners=False)
++            cond_input = F.interpolate(cond_input, size=(64, 64), mode='bilinear', align_corners=False)
++
++            # Adversarial ground truths
++            valid = torch.full((batch_size, 1), 0.9, device=device)
++            fake = torch.zeros(batch_size, 1, device=device)
++
++            # ---------------------
++            #  Train Generator (U-Net)
++            # ---------------------
++            opt_G.zero_grad()
++            # Generator produces an image given the condition (raw capacitance) measurement.
++            gen_imgs = generator(real_imgs,cond_input)
++            # Resize generated images to match the discriminator's input size
++            gen_imgs = F.interpolate(gen_imgs, size=(64, 64), mode='bilinear', align_corners=False)
++            # Loss measures generator's ability to fool the discriminator (?)
++            g_loss = criterion(discriminator(gen_imgs, cond_input), valid)
++            g_loss.backward()
++            opt_G.step()
++
++            # ---------------------
++            #  Train Discriminator
++            # ---------------------
++            opt_D.zero_grad()
++            # Loss for real images
++            real_loss = criterion(discriminator(real_imgs, cond_input), valid)
++            # Loss for fake images
++            fake_loss = criterion(discriminator(gen_imgs.detach(), cond_input), fake)
++            d_loss = (real_loss + fake_loss) / 2
++            d_loss.backward()
++            opt_D.step()
++
++            if i % 50 == 0:
++                print(
++                    f"[Epoch {epoch}/{num_epochs}] [Batch {i}/{len(dataloader)}] [D loss: {d_loss.item():.4f}] [G loss: {g_loss.item():.4f}]")
++                dislossarr.append(d_loss.item())
++                genlossarr.append(g_loss.item())
++
++
++    plt.plot(dislossarr, label='Discriminator Loss')
++    plt.plot(genlossarr, label='Generator Loss')
++    plt.show()
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"AutoImportSettings\">\r\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\r\n  </component>\r\n  <component name=\"ChangeListManager\">\r\n    <list default=\"true\" id=\"9db6143a-e5ce-44c3-8333-f9b1132022cc\" name=\"Changes\" comment=\"+FIRST ECHO PROTOTYPE\">\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/Grant Files/CGAN_paper.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/Grant Files/CGAN_paper.py\" afterDir=\"false\" />\r\n    </list>\r\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\r\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\r\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\r\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\r\n  </component>\r\n  <component name=\"FileTemplateManagerImpl\">\r\n    <option name=\"RECENT_TEMPLATES\">\r\n      <list>\r\n        <option value=\"Python Script\" />\r\n      </list>\r\n    </option>\r\n  </component>\r\n  <component name=\"Git.Settings\">\r\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\r\n    <option name=\"SWAP_SIDES_IN_COMPARE_BRANCHES\" value=\"true\" />\r\n  </component>\r\n  <component name=\"GitHubPullRequestSearchHistory\">{\r\n  &quot;lastFilter&quot;: {\r\n    &quot;state&quot;: &quot;OPEN&quot;,\r\n    &quot;assignee&quot;: &quot;bGG178&quot;\r\n  }\r\n}</component>\r\n  <component name=\"GithubPullRequestsUISettings\">{\r\n  &quot;selectedUrlAndAccountId&quot;: {\r\n    &quot;url&quot;: &quot;https://github.com/bGG178/ECHO_ML.git&quot;,\r\n    &quot;accountId&quot;: &quot;1dd39b4d-852a-4d3e-8a93-166a244b43bb&quot;\r\n  }\r\n}</component>\r\n  <component name=\"HighlightingSettingsPerFile\">\r\n    <setting file=\"file://$PROJECT_DIR$/.venv/Lib/site-packages/torch/utils/data/dataset.py\" root0=\"SKIP_INSPECTION\" />\r\n  </component>\r\n  <component name=\"ProjectColorInfo\">{\r\n  &quot;associatedIndex&quot;: 2\r\n}</component>\r\n  <component name=\"ProjectId\" id=\"2uutPLg6ZCfURDGG4NssoxMrDI2\" />\r\n  <component name=\"ProjectLevelVcsManager\" settingsEditedManually=\"true\">\r\n    <ConfirmationsSetting value=\"2\" id=\"Add\" />\r\n  </component>\r\n  <component name=\"ProjectViewState\">\r\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\r\n    <option name=\"showLibraryContents\" value=\"true\" />\r\n  </component>\r\n  <component name=\"PropertiesComponent\">{\r\n  &quot;keyToString&quot;: {\r\n    &quot;Python.CGAN_gpt.executor&quot;: &quot;Run&quot;,\r\n    &quot;Python.CGAN_paper.executor&quot;: &quot;Run&quot;,\r\n    &quot;Python.LBP.executor&quot;: &quot;Run&quot;,\r\n    &quot;Python.main.executor&quot;: &quot;Run&quot;,\r\n    &quot;Python.modulator.executor&quot;: &quot;Run&quot;,\r\n    &quot;Python.phantom_generator.executor&quot;: &quot;Run&quot;,\r\n    &quot;Python.sens_matrix.executor&quot;: &quot;Run&quot;,\r\n    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,\r\n    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,\r\n    &quot;git-widget-placeholder&quot;: &quot;master&quot;,\r\n    &quot;last_opened_file_path&quot;: &quot;C:/Users/welov/Documents/GitHub/conditional_gan&quot;,\r\n    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;\r\n  }\r\n}</component>\r\n  <component name=\"RecentsManager\">\r\n    <key name=\"MoveFile.RECENT_KEYS\">\r\n      <recent name=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\Grant Files\\Construction\" />\r\n      <recent name=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\Grant Files\" />\r\n      <recent name=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\Grant Files\\ECHO_CGAN_UNET\" />\r\n      <recent name=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\DATA\" />\r\n      <recent name=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\CGAN Github Lonatang\" />\r\n    </key>\r\n  </component>\r\n  <component name=\"RunManager\">\r\n    <configuration name=\"modulator\" type=\"PythonConfigurationType\" factoryName=\"Python\" temporary=\"true\" nameIsGenerated=\"true\">\r\n      <module name=\"ECHO_ML\" />\r\n      <option name=\"ENV_FILES\" value=\"\" />\r\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\r\n      <option name=\"PARENT_ENVS\" value=\"true\" />\r\n      <envs>\r\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\r\n      </envs>\r\n      <option name=\"SDK_HOME\" value=\"\" />\r\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$/Grant Files/ECHO_CGAN_UNET\" />\r\n      <option name=\"IS_MODULE_SDK\" value=\"true\" />\r\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\r\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\r\n      <option name=\"SCRIPT_NAME\" value=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\Grant Files\\Construction\\modulator.py\" />\r\n      <option name=\"PARAMETERS\" value=\"\" />\r\n      <option name=\"SHOW_COMMAND_LINE\" value=\"false\" />\r\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\r\n      <option name=\"MODULE_MODE\" value=\"false\" />\r\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\r\n      <option name=\"INPUT_FILE\" value=\"\" />\r\n      <method v=\"2\" />\r\n    </configuration>\r\n    <configuration name=\"phantom_generator\" type=\"PythonConfigurationType\" factoryName=\"Python\" temporary=\"true\" nameIsGenerated=\"true\">\r\n      <module name=\"ECHO_ML\" />\r\n      <option name=\"ENV_FILES\" value=\"\" />\r\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\r\n      <option name=\"PARENT_ENVS\" value=\"true\" />\r\n      <envs>\r\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\r\n      </envs>\r\n      <option name=\"SDK_HOME\" value=\"\" />\r\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$/Grant Files/Phantom Generators\" />\r\n      <option name=\"IS_MODULE_SDK\" value=\"true\" />\r\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\r\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\r\n      <option name=\"SCRIPT_NAME\" value=\"C:\\Users\\welov\\PycharmProjects\\ECHO_ML\\Grant Files\\Construction\\phantom_generator.py\" />\r\n      <option name=\"PARAMETERS\" value=\"\" />\r\n      <option name=\"SHOW_COMMAND_LINE\" value=\"false\" />\r\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\r\n      <option name=\"MODULE_MODE\" value=\"false\" />\r\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\r\n      <option name=\"INPUT_FILE\" value=\"\" />\r\n      <method v=\"2\" />\r\n    </configuration>\r\n    <recent_temporary>\r\n      <list>\r\n        <item itemvalue=\"Python.modulator\" />\r\n        <item itemvalue=\"Python.phantom_generator\" />\r\n      </list>\r\n    </recent_temporary>\r\n  </component>\r\n  <component name=\"SharedIndexes\">\r\n    <attachedChunks>\r\n      <set>\r\n        <option value=\"bundled-python-sdk-495700d161d3-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.22562.220\" />\r\n      </set>\r\n    </attachedChunks>\r\n  </component>\r\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\r\n  <component name=\"TaskManager\">\r\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\r\n      <changelist id=\"9db6143a-e5ce-44c3-8333-f9b1132022cc\" name=\"Changes\" comment=\"\" />\r\n      <created>1743110261953</created>\r\n      <option name=\"number\" value=\"Default\" />\r\n      <option name=\"presentableId\" value=\"Default\" />\r\n      <updated>1743110261953</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00001\" summary=\"Creating folders and main test code\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1743882668344</created>\r\n      <option name=\"number\" value=\"00001\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00001\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1743882668344</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00002\" summary=\"+Python ML tutorial files\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1743882765593</created>\r\n      <option name=\"number\" value=\"00002\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00002\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1743882765593</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00003\" summary=\"+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1743889781117</created>\r\n      <option name=\"number\" value=\"00003\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00003\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1743889781117</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00004\" summary=\"*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1744065680488</created>\r\n      <option name=\"number\" value=\"00004\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00004\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1744065680488</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00005\" summary=\"+Modulator.py\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1744124505572</created>\r\n      <option name=\"number\" value=\"00005\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00005\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1744124505572</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00006\" summary=\"+Modulator.py\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1744124521930</created>\r\n      <option name=\"number\" value=\"00006\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00006\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1744124521930</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00007\" summary=\"+phantom_generator.py&#10;+New Datasets\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1744128228063</created>\r\n      <option name=\"number\" value=\"00007\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00007\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1744128228063</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00008\" summary=\"+Trying LBP&#10;*Changes to modulator.py for presentatbility\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1744144792853</created>\r\n      <option name=\"number\" value=\"00008\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00008\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1744144792853</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00009\" summary=\"+FIRST ECHO PROTOTYPE\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1744165137370</created>\r\n      <option name=\"number\" value=\"00009\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00009\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1744165137370</updated>\r\n    </task>\r\n    <option name=\"localTasksCounter\" value=\"10\" />\r\n    <servers />\r\n  </component>\r\n  <component name=\"Vcs.Log.Tabs.Properties\">\r\n    <option name=\"RECENT_FILTERS\">\r\n      <map>\r\n        <entry key=\"Branch\">\r\n          <value>\r\n            <list>\r\n              <RecentGroup>\r\n                <option name=\"FILTER_VALUES\">\r\n                  <option value=\"origin/master\" />\r\n                </option>\r\n              </RecentGroup>\r\n              <RecentGroup>\r\n                <option name=\"FILTER_VALUES\">\r\n                  <option value=\"master\" />\r\n                </option>\r\n              </RecentGroup>\r\n            </list>\r\n          </value>\r\n        </entry>\r\n      </map>\r\n    </option>\r\n    <option name=\"TAB_STATES\">\r\n      <map>\r\n        <entry key=\"MAIN\">\r\n          <value>\r\n            <State>\r\n              <option name=\"FILTERS\">\r\n                <map>\r\n                  <entry key=\"branch\">\r\n                    <value>\r\n                      <list>\r\n                        <option value=\"origin/master\" />\r\n                      </list>\r\n                    </value>\r\n                  </entry>\r\n                </map>\r\n              </option>\r\n            </State>\r\n          </value>\r\n        </entry>\r\n      </map>\r\n    </option>\r\n  </component>\r\n  <component name=\"VcsManagerConfiguration\">\r\n    <MESSAGE value=\"Creating folders and main test code\" />\r\n    <MESSAGE value=\"+Python ML tutorial files\" />\r\n    <MESSAGE value=\"+CGAN GitHub&#10;+Grant Implementation&#10;+TriangleMLUpload within DATA folder\" />\r\n    <MESSAGE value=\"*Changed CGAN_gpt.py&#10;+Added CGAN_paper.py, based on paper\" />\r\n    <MESSAGE value=\"+Modulator.py\" />\r\n    <MESSAGE value=\"+phantom_generator.py&#10;+New Datasets\" />\r\n    <MESSAGE value=\"+Trying LBP&#10;*Changes to modulator.py for presentatbility\" />\r\n    <MESSAGE value=\"+FIRST ECHO PROTOTYPE\" />\r\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"+FIRST ECHO PROTOTYPE\" />\r\n  </component>\r\n  <component name=\"XDebuggerManager\">\r\n    <breakpoint-manager>\r\n      <breakpoints>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/.venv/Lib/site-packages/torch/utils/data/dataset.py</url>\r\n          <line>1</line>\r\n          <option name=\"timeStamp\" value=\"1\" />\r\n        </line-breakpoint>\r\n      </breakpoints>\r\n    </breakpoint-manager>\r\n  </component>\r\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision 45449b9cc07607328786abc5feae6f4cc41a0bf5)
++++ b/.idea/workspace.xml	(date 1744652246297)
+@@ -4,7 +4,8 @@
+     <option name="autoReloadType" value="SELECTIVE" />
+   </component>
+   <component name="ChangeListManager">
+-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+FIRST ECHO PROTOTYPE">
++    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="+ECHO_CGAN v0.0.2">
++      <change afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper2.py" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper.py" afterDir="false" />
+     </list>
+@@ -62,11 +63,14 @@
+     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+-    &quot;last_opened_file_path&quot;: &quot;C:/Users/welov/Documents/GitHub/conditional_gan&quot;,
++    &quot;last_opened_file_path&quot;: &quot;C:/Users/welov/PycharmProjects/ECHO_ML/Grant Files&quot;,
+     &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
+   }
+ }</component>
+   <component name="RecentsManager">
++    <key name="CopyFile.RECENT_KEYS">
++      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
++    </key>
+     <key name="MoveFile.RECENT_KEYS">
+       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction" />
+       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
+@@ -75,7 +79,7 @@
+       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\CGAN Github Lonatang" />
+     </key>
+   </component>
+-  <component name="RunManager">
++  <component name="RunManager" selected="Python.modulator">
+     <configuration name="modulator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+       <module name="ECHO_ML" />
+       <option name="ENV_FILES" value="" />
+@@ -215,7 +219,15 @@
+       <option name="project" value="LOCAL" />
+       <updated>1744165137370</updated>
+     </task>
+-    <option name="localTasksCounter" value="10" />
++    <task id="LOCAL-00010" summary="+ECHO_CGAN v0.0.2">
++      <option name="closed" value="true" />
++      <created>1744227563402</created>
++      <option name="number" value="00010" />
++      <option name="presentableId" value="LOCAL-00010" />
++      <option name="project" value="LOCAL" />
++      <updated>1744227563402</updated>
++    </task>
++    <option name="localTasksCounter" value="11" />
+     <servers />
+   </component>
+   <component name="Vcs.Log.Tabs.Properties">
+@@ -270,7 +282,8 @@
+     <MESSAGE value="+phantom_generator.py&#10;+New Datasets" />
+     <MESSAGE value="+Trying LBP&#10;*Changes to modulator.py for presentatbility" />
+     <MESSAGE value="+FIRST ECHO PROTOTYPE" />
+-    <option name="LAST_COMMIT_MESSAGE" value="+FIRST ECHO PROTOTYPE" />
++    <MESSAGE value="+ECHO_CGAN v0.0.2" />
++    <option name="LAST_COMMIT_MESSAGE" value="+ECHO_CGAN v0.0.2" />
+   </component>
+   <component name="XDebuggerManager">
+     <breakpoint-manager>

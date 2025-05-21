@@ -134,6 +134,41 @@ def compute_sensing_values(scan_polygons, shapes):
         values.append(ratio)
     return values
 
+def perform_scan_on_phantoms(phantom_list, radius=5, num_electrodes=15, num_excitation=15):
+    """
+    Given a list of phantom objects (x, y, r), simulate scans and return sensing values.
+
+    Args:
+        phantom_list: List of tuples like (x, y, r) for circular phantoms
+        radius: Radius of the sensing region
+        num_electrodes: Number of electrodes
+        num_excitation: Number of emitting electrodes
+
+    Returns:
+        List of sensing values
+    """
+
+    # Convert phantom tuples to Shapely circles with resolution 50
+    shapes = [(Point(x, y).buffer(r, resolution=50), x, y, r) for (x, y, r) in phantom_list]
+
+    # Generate electrode positions
+    points = generate_circle_points(radius, num_electrodes)
+    center = [0, 0]
+
+    # Generate scan pairs
+    scan_pairs = generate_sync_scan_sequence(num_electrodes, num_excitation)
+
+    # Generate scan polygons
+    polygons, _ = compute_scan_polygons(points, center, scan_pairs, num_electrodes)
+
+    # Extract just the Shapely polygons from the output
+    poly_only = [p[1] for p in polygons]
+
+    # Compute sensing values
+    values = compute_sensing_values(poly_only, shapes)
+
+    return values
+
 @functiontimer
 def main(radius=5, num_electrodes=12, num_excitation=12, fade=True, animate=False, savegif=False):
     """Main function to generate electrodes, simulate scans, and optionally animate."""
@@ -198,7 +233,7 @@ def main(radius=5, num_electrodes=12, num_excitation=12, fade=True, animate=Fals
             return lines + patches + [value_text]
 
     if animate:
-        ani = FuncAnimation(fig, update, frames=len(scan_pairs), interval=500, blit=True, repeat=False)
+        ani = FuncAnimation(fig, update, frames=len(scan_pairs), interval=500, blit=True, repeat=True)
         plt.show()
         if savegif:
             output_dir = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\gifs"
@@ -222,13 +257,13 @@ def main(radius=5, num_electrodes=12, num_excitation=12, fade=True, animate=Fals
 
 
 if __name__ == "__main__":
-    numberSamples = 3500
+    numberSamples = 1
     numberElectrodes = 15
     numberExcitationElectrodes = 15
-    save = True #save as file. If doing large batches, turn savegif and animate false
+    save = False #save as file. If doing large batches, turn savegif and animate false
     savegif = False #DO NOT DO THIS UNLESS YOU ARE SURE AND HAVE NUMBERSAMPLES BELOW 10
-    animate = False #In order for animations for savegif to work, this must also be true
-    fade = False
+    animate = True #In order for animations for savegif to work, this must also be true
+    fade = True
     # shapes structure:(circle_geometry, x, y, r)
     data = []
 

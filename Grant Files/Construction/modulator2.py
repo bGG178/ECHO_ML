@@ -43,26 +43,25 @@ def generate_circulant_matrix_from_measurements(measurements, baseline, build_ci
     return circ_mat
 
 
-def subtract_baseline(measurement_array, baseline_array):
+def subtract_baseline(measurement_array, baseline_array,epsilon=1e-15):
     """
-    Subtracts the baseline array (empty scan) from the measurement array.
+    Divides the measurement array by the baseline array element-wise.
 
     Args:
         measurement_array (array-like): Array from ECT scan with contents.
         baseline_array (array-like): Array from ECT scan with empty dewar (noise only).
+        epsilon (float): Small value to avoid division by zero.
 
     Returns:
-        np.ndarray: Cleaned array with baseline noise subtracted.
+        np.ndarray: Array with each element as measurement / baseline.
     """
-    # Convert to numpy arrays in case input isn't already
     measurement = np.array(measurement_array)
     baseline = np.array(baseline_array)
 
-    # Sanity check: ensure arrays are same shape
     if measurement.shape != baseline.shape:
         raise ValueError("Measurement and baseline arrays must have the same shape")
 
-    return measurement - baseline
+    return measurement / (baseline + epsilon)  # epsilon avoids division by zero
 
 def phantomplot(ax1, phantom):
     r = 5  # Match the electrode sensing area
@@ -171,9 +170,11 @@ if __name__ == "__main__":
         measurements = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.108341, 0.307936, 0.0, 0.0, 0.0, 0.0, 0.0]
         npmeasurements = np.array(measurements)
 
+        cyl1 = [0.9748556000947695, 1.0158282647606631, 0.8330202658169318, 0.6465209219977359, 0.12256027572784957, 0.08890590189069338, 0.23260472578221494, 0.035815572479549314, 0.4695769691582139, 0.8116955108130423, 0.2795957899545081, 0.2456511500871949, 0.0, 0.3078962677200969, 0.9613355573762375, 0.8705941631669781, 0.5853834315864682, 0.24897156230700898, 0.07092631749273563, 0.023669845987407657, 0.2933893083729245, 0.7893394096365414, 0.3908308081744082, 0.3216977031071976, 0.12403928896873873, 0.030458185701616354, 0.0, 0.4981453989414405, 0.4830030286950152, 0.4389819106393869, 0.30987169840339196, 0.06993428519548579, 0.15249154227515416, 0.020328453081221096, 0.25202292085812905, 0.7204119536801427, 0.6363636291270897, 0.35297694921700523, 0.0, 0.985924935278608, 0.9384588688410865, 0.7792835395016817, 0.48599436821814457, 0.0, 0.17752383980299244, 0.057142855803716856, 0.8351720471873292, 0.37132973527936297, 1.0990051225185165, 0.02547910524999533, 0.9943752241069914, 0.9763531500749864, 0.8992315132659635, 0.4340584798247285, 0.013245787501649066, 0.0598277717575677, 2.000420215646156, 0.8786598701926882, 0.5103270313320472, 0.14037208628359735, 0.967829962379796, 0.8868828171190689, 0.31542194264610857, 0.18182437978202953, 0.08889456095024484, 0.1472470476250568, 0.037249207003714625, 0.8125661557683489, 0.0, 0.9942472088361838, 0.9102178892516595, 0.7660307352649971, 0.5226356984178576, 0.015504911012590751, 0.6850257159852431, 0.24159491447228434, 0.0, 0.9519588069559728, 0.8657174786358521, 0.7235303344629844, 0.37011812059208965, 0.05369437793405656, 0.07583248097528111, 0.0, 0.991454271935415, 0.9617986856279429, 0.8851110721905034, 0.7172018257944403, 0.626780186813138, 0.0, 0.9917016498160064, 0.9545165238613201, 0.8466433528539071, 0.6519906545298363, 0.0, 0.0, 0.0, 0.23653064130935703, 0.0, 0.981518970308278, 0.9234388321001451, 0.023739480424481665, 0.9932248158266643, 0.0, 0.0]
+
         normalizedmeasurements = subtract_baseline(measurements, baseline)
 
-        npnormalizedmeasurements = np.array(normalizedmeasurements)
+        npnormalizedmeasurements = np.array(cyl1)
 
         circ_mat = build_circulant_matrix(npnormalizedmeasurements)
 
