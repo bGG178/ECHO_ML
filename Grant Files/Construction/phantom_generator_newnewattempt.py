@@ -1,5 +1,7 @@
 # File: electrode_circle_animation.py
 import datetime
+from shapely.geometry import Point, box
+
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,6 +9,7 @@ from matplotlib.patches import PathPatch, Circle
 from matplotlib.path import Path
 from matplotlib.animation import FuncAnimation
 import random
+from shapely import affinity
 from shapely.geometry import Point, Polygon as ShapelyPolygon
 from shapely.ops import unary_union
 import json
@@ -70,11 +73,35 @@ def generate_random_shapes(num_shapes, area_radius):
     """Generates random circular obstacles in the sensing area."""
     shapes = []
     for _ in range(num_shapes):
-        r = random.uniform(0.5, 1.5)
-        x = random.uniform(-area_radius + r, area_radius - r)
-        y = random.uniform(-area_radius + r, area_radius - r)
-        circle = Point(x, y).buffer(r, resolution=50)
-        shapes.append((circle, x, y, r))
+        chance = random.random()
+        if 1==1: # do a circle
+            shape = 'circle'
+            r = random.uniform(0.5, 2)
+            x = random.uniform(-area_radius + r, area_radius - r)
+            y = random.uniform(-area_radius + r, area_radius - r)
+            circle = Point(x, y).buffer(r, resolution=50)
+            rotation = random.uniform(0, 360)
+            shapes.append((shape,circle, x, y, r, 0, 0, rotation))
+        """elif (chance >= 55) & (chance <55): #do a square
+            shape = 'square'
+            r = random.uniform(0.5, 2)
+            x = random.uniform(-area_radius + r, area_radius - r)
+            y = random.uniform(-area_radius + r, area_radius - r)
+            square = box(x - r, y - r, x + r, y + r)
+            rotation = random.uniform(0, 360)
+            shapes.append((shape,square, x, y, r, 0, 0, rotation))
+        if 1==1: #do on oval
+            shape = 'oval'
+            r = random.uniform(0.5, 1.5)
+            x = random.uniform(-area_radius + r, area_radius - r)
+            y = random.uniform(-area_radius + r, area_radius - r)
+            circle = Point(x, y).buffer(r, resolution=50)
+            xfact = random.uniform(0.5, 2.5)
+            yfact = random.uniform(0.5, 2.5)
+            rotation = random.uniform(0, 360)
+            oval = affinity.scale(circle,xfact=xfact, yfact=yfact, origin =(x, y))
+            shapes.append((shape,oval, x, y, r, xfact, yfact,rotation))"""
+
     return shapes
 
 def compute_scan_polygons(points, center, scan_pairs, num_electrodes):
@@ -118,20 +145,43 @@ def compute_scan_polygons(points, center, scan_pairs, num_electrodes):
 
     return polygons, sensing_values
 
-def compute_sensing_values(scan_polygons, shapes):
-    """Computes overlap ratios between each scan polygon and the union of shapes.
-    If a polygon is invalid, assigns value 0.0.
+def compute_sensing_values(scan_polygons, shapes, epsilon=1e-5):
     """
-    union_shapes = unary_union([s[0] for s in shapes])
+    Computes overlap ratios between each scan polygon and the union of shapes.
+    If a polygon is invalid or intersection is negligible, assigns 0.0.
+    """
+    # Fix and unify all shape geometries first
+    cleaned_shapes = []
+    print("Shapes, ", shapes)
+    for s in shapes:
+
+        geom = s[1] if isinstance(s, tuple) else s[0]
+        if not geom.is_valid:
+            geom = geom.buffer(0)
+        cleaned_shapes.append(geom)
+
+    union_shapes = unary_union(cleaned_shapes)
+    if not union_shapes.is_valid:
+        union_shapes = union_shapes.buffer(0)
+
     values = []
     for poly in scan_polygons:
         if not poly.is_valid:
-            values.append(0.0)
-            continue
-        intersection_area = union_shapes.intersection(poly).area
+            poly = poly.buffer(0)
+            if not poly.is_valid:
+                values.append(0.0)
+                continue
+
+        intersection = union_shapes.intersection(poly)
+        intersection_area = intersection.area
         area = poly.area if poly.area > 0 else 1
-        ratio = round(intersection_area / area, 6)
-        values.append(ratio)
+
+        # Suppress very small ratios
+        ratio = intersection_area / area
+        if ratio < epsilon:
+            ratio = 0.0
+        values.append(round(ratio, 6))
+
     return values
 
 def perform_scan_on_phantoms(phantom_list, radius=5, num_electrodes=15, num_excitation=15):
@@ -149,7 +199,22 @@ def perform_scan_on_phantoms(phantom_list, radius=5, num_electrodes=15, num_exci
     """
 
     # Convert phantom tuples to Shapely circles with resolution 50
-    shapes = [(Point(x, y).buffer(r, resolution=50), x, y, r) for (x, y, r) in phantom_list]
+    shapes = []
+    #print(phantom_list)
+    for shape_type, shape_geom,x, y, r, xfact,yfact, rotation in phantom_list:
+        print(f"Shape type: {shape_type},shape geom: {shape_geom}, x: {x}, y: {y}, r: {r}, xfact: {xfact}, yfact: {yfact}, rotation: {rotation}")
+        if shape_type == 'circle':
+            shape_geom = Point(x, y).buffer(r, resolution=50)
+        elif shape_type == 'square':
+            shape_geom = affinity.rotate(box(x - r, y - r, x + r, y + r), rotation, origin=(x, y))
+        elif shape_type == 'oval':
+            shape_geom = Point(x, y).buffer(r, resolution=50)
+            shape_geom = affinity.scale(shape_geom, xfact=xfact, yfact=yfact, origin=(x, y))
+            shape_geom = affinity.rotate(shape_geom, rotation, origin=(x, y))
+        else:
+            raise ValueError(f"Unknown shape type: {shape_type}")
+
+        shapes.append((shape_type, shape_geom,x, y, r, xfact,yfact, rotation))
 
     # Generate electrode positions
     points = generate_circle_points(radius, num_electrodes)
@@ -193,8 +258,20 @@ def main(radius=5, num_electrodes=12, num_excitation=12, fade=True, animate=Fals
         ax.scatter(points[:, 0], points[:, 1], color='green', zorder=5)
         for idx, (x, y) in enumerate(points):
             ax.text(x * 1.05, y * 1.05, str(idx + 1), ha='center', va='center')
-        for _, x, y, r in shapes:
-            ax.add_patch(Circle((x, y), r, color='gray', alpha=0.3))
+        for type,_, x, y, r,xf,yf, rot in shapes:
+            if type == 'circle':
+                ax.add_patch(Circle((x, y), r, color='gray', alpha=0.3))
+            elif type == 'square':
+                square = box(x - r, y - r, x + r, y + r)
+                square = affinity.rotate(square, rot, origin=(x, y))
+                ax.add_patch(PathPatch(Path(np.array(square.exterior.coords), closed=True), color='gray', alpha=0.3))
+            elif type == 'oval':
+                print("OVAL")
+                print(f"Shape type: {type}, x: {x}, y: {y}, r: {r}, xfact: {xf}, yfact: {yf}, rotation: {rot}")
+                circle = Point(x, y).buffer(r, resolution=50)
+                oval = affinity.scale(circle, xfact=xf, yfact=yf, origin=(x, y))
+                oval = affinity.rotate(oval, rot, origin=(x, y))
+                ax.add_patch(PathPatch(Path(np.column_stack(oval.exterior.xy), closed=True), color='gray', alpha=0.3))
 
         ax.set_xlim(-radius - 1, radius + 1)
         ax.set_ylim(-radius - 1, radius + 1)
@@ -236,7 +313,7 @@ def main(radius=5, num_electrodes=12, num_excitation=12, fade=True, animate=Fals
         ani = FuncAnimation(fig, update, frames=len(scan_pairs), interval=500, blit=True, repeat=True)
         plt.show()
         if savegif:
-            output_dir = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\gifs"
+            output_dir = r"C:\Users\bower\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData\gifs"
             os.makedirs(output_dir, exist_ok=True)
 
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -257,13 +334,13 @@ def main(radius=5, num_electrodes=12, num_excitation=12, fade=True, animate=Fals
 
 
 if __name__ == "__main__":
-    numberSamples = 1
+    numberSamples = 10000
     numberElectrodes = 15
     numberExcitationElectrodes = 15
-    save = False #save as file. If doing large batches, turn savegif and animate false
+    save = True #save as file. If doing large batches, turn savegif and animate false
     savegif = False #DO NOT DO THIS UNLESS YOU ARE SURE AND HAVE NUMBERSAMPLES BELOW 10
-    animate = True #In order for animations for savegif to work, this must also be true
-    fade = True
+    animate = False #In order for animations for savegif to work, this must also be true
+    fade = False
     # shapes structure:(circle_geometry, x, y, r)
     data = []
 
@@ -271,7 +348,7 @@ if __name__ == "__main__":
         print(f"Sample {i + 1}")
         sensing_values, shapes = main(radius=5, num_electrodes=numberElectrodes,num_excitation=numberExcitationElectrodes, fade=fade, animate=animate, savegif=savegif)
 
-        obj_list = [{"center": [round(x, 6), round(y, 6)], "radius": round(r, 6)} for (_, x, y, r) in shapes]
+        obj_list = [{"center": [round(x, 8), round(y, 8)], "radius": round(r, 8), "type":type, "xf": round(xf,8), "yf":round(yf,8),"rotation":rot} for (type,_, x, y, r,xf,yf, rot) in shapes]
         data.append({
             "objects": obj_list,
             "measurements": [round(val, 6) for val in sensing_values]
@@ -279,10 +356,10 @@ if __name__ == "__main__":
 
     if save:
 
-        output_dir = r"C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData"  # Absolute path to the desired directory
+        output_dir = r"C:\Users\bower\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData"  # Absolute path to the desired directory
         try:
             os.makedirs(output_dir, exist_ok=True)
-            output_file = os.path.join(output_dir, f"npg_{numberSamples}_{numberElectrodes}e{numberExcitationElectrodes}_traintest.json") #format as 'npg_{number of samples}_{number of electrodes}e{number of emitting electrodes}_{purpose(test, train, traintest)}.json'
+            output_file = os.path.join(output_dir, f"npgC_{numberSamples}_{numberElectrodes}e{numberExcitationElectrodes}_traintest.json") #format as 'npg_{number of samples}_{number of electrodes}e{number of emitting electrodes}_{purpose(test, train, traintest)}.json'
 
             # Save to JSON
             with open(output_file, 'w') as f:
