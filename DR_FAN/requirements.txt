@@ -1,0 +1,9 @@
+torch
+matplotlib
+tqdm
+shapely
+numpy
+pillow
+functools
+psutil
+pyparsing

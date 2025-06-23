@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 from matplotlib.patches import Circle, Rectangle
 from Construction.modulator2 import build_circulant_matrix
 from Construction.phantom_generator_newnewattempt import perform_scan_on_phantoms
-from CGAN_paper_ECHO_1 import Generator
+from CGAN_paper_ECHO_2 import Generator
 import psutil, time
 
 # Toggle between circle and square shapes
@@ -106,6 +106,7 @@ def load_generator_model(model_path="generator_model.pth", image_size=128, devic
 usagearray = []
 usagecount = 0
 globalstart = time.time()
+timeindex = []
 
 @functiontimer
 def generate_image_from_capacitance(model, capacitance_array, image_size=128, device=None):
@@ -135,6 +136,8 @@ def generate_image_from_capacitance(model, capacitance_array, image_size=128, de
 
     print(f"CPU time: {cpu_usage:.15f}s, Wall time: {elapsed:.5f}s")
     usagecount += 1
+    timeindex.append(elapsed)
+
     if cpu_usage !=0:
         usagearray.append(cpu_usage*4.06)
 
@@ -348,6 +351,7 @@ plt.show()
 print(str(mlossarr))
 python_list = [float(x) for x in icarray]
 print(python_list)
-print(usagearray)
-print(usagecount)
-print(globalstart- time.time())
+#print(usagearray)
+#print(usagecount)
+#print(globalstart- time.time())
+print(timeindex)

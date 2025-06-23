@@ -4,14 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="ECHO ML integration v1.0 with pth">
-      <change afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper4.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper_ECHO_2.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Grant Files/cudaverif.py" afterDir="false" />
+    <list default="true" id="9db6143a-e5ce-44c3-8333-f9b1132022cc" name="Changes" comment="ECHO ML V0.2.3">
+      <change afterPath="$PROJECT_DIR$/DR_FAN/CGAN_paper_ECHO_FAN_CIRC.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DR_FAN/CGAN_paper_ECHO_FAN_OVAL.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DR_FAN/Data/npgC_10000_15e15_traintest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DR_FAN/Data/npgO_20000_15e15_traintest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DR_FAN/ECHO_LoaderMachine_CIRC.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DR_FAN/ECHO_LoaderMachine_OVAL.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DR_FAN/Phantom_generator_FAN_CIRC.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DR_FAN/Phantom_generator_FAN_OVAL.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DR_FAN/modulator_FAN_CIRC.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DR_FAN/modulator_FAN_OVAL.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DR_FAN/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/DATA/GrantGeneratedData/npg_5000_15e15_traintest.json" beforeDir="false" afterPath="$PROJECT_DIR$/DATA/GrantGeneratedData/npg_5000_15e15_traintest.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/CGAN_paper_ECHO_1.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/CGAN_paper_ECHO_1.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator_newnewattempt.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/Construction/phantom_generator_newnewattempt.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Grant Files/ECHO_0.1_Loader_machine.py" beforeDir="false" afterPath="$PROJECT_DIR$/Grant Files/ECHO_0.1_Loader_machine.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -71,6 +76,7 @@
     &quot;Python.CGAN_paper4.executor&quot;: &quot;Run&quot;,
     &quot;Python.CGAN_paper_ECHO_1.executor&quot;: &quot;Run&quot;,
     &quot;Python.CGAN_paper_ECHO_2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.CGAN_paper_ECHO_FAN.executor&quot;: &quot;Run&quot;,
     &quot;Python.ECHO_0.1_Loader.executor&quot;: &quot;Run&quot;,
     &quot;Python.ECHO_0.1_Loader_machine.executor&quot;: &quot;Run&quot;,
     &quot;Python.LBP.executor&quot;: &quot;Run&quot;,
@@ -88,25 +94,27 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/bower/PycharmProjects/ECHO_ML/Grant Files&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/bower/PycharmProjects/ECHO_ML/DR_FAN/Data&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\bower\PycharmProjects\ECHO_ML\DR_FAN\Data" />
+      <recent name="C:\Users\bower\PycharmProjects\ECHO_ML\DR_FAN" />
       <recent name="C:\Users\bower\PycharmProjects\ECHO_ML\Grant Files" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\bower\PycharmProjects\ECHO_ML\DR_FAN" />
+      <recent name="C:\Users\bower\PycharmProjects\ECHO_ML\DR_FAN\Outputs\Circle" />
+      <recent name="C:\Users\bower\PycharmProjects\ECHO_ML\DR_FAN\Outputs\Oval" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files" />
       <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\DATA\GrantGeneratedData" />
-      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\Construction" />
-      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\Grant Files\ECHO_CGAN_UNET" />
-      <recent name="C:\Users\welov\PycharmProjects\ECHO_ML\DATA" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.modulator">
     <configuration name="modulator" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="ECHO_ML" />
       <option name="ENV_FILES" value="" />
@@ -309,7 +317,15 @@
       <option name="project" value="LOCAL" />
       <updated>1746132225442</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="ECHO ML V0.2.3">
+      <option name="closed" value="true" />
+      <created>1750397304142</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1750397304142</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -368,7 +384,8 @@
     <MESSAGE value="+ECHO_CGAN v0.1.1&#10;*Adding Test Datasets" />
     <MESSAGE value="ECHO ML integration v1.0" />
     <MESSAGE value="ECHO ML integration v1.0 with pth" />
-    <option name="LAST_COMMIT_MESSAGE" value="ECHO ML integration v1.0 with pth" />
+    <MESSAGE value="ECHO ML V0.2.3" />
+    <option name="LAST_COMMIT_MESSAGE" value="ECHO ML V0.2.3" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -382,6 +399,11 @@
           <url>file://$PROJECT_DIR$/Grant Files/CGAN_paper4.py</url>
           <line>382</line>
           <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/DR_FAN/Phantom_generator_FAN_CIRC.py</url>
+          <line>1</line>
+          <option name="timeStamp" value="6" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
